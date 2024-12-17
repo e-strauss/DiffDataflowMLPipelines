@@ -1,6 +1,7 @@
 extern crate timely;
 extern crate differential_dataflow;
 
+use std::thread;
 use differential_dataflow::input::InputSession;
 use differential_dataflow::operators::{Join, Reduce};
 use differential_dataflow::Collection;
@@ -24,34 +25,56 @@ fn demo1() {
         let mut input = InputSession::new();
 
         // define a new computation.
-        worker.dataflow(|scope| {
+        let probe = worker.dataflow(|scope| {
 
             // create a new collection from our input.
             let input_df = input.to_collection(scope)
-                .inspect(|x| println!("{:?}", x));
+                .inspect(|x| println!("STARTd: {:?}", x));
 
             // if (m2, m1) and (m1, p), then output (m1, (m2, p))
             let input_df = input_df
                 .map(| v | (1, v));
 
             let meta = standard_scaler_fit(&input_df)
-                .inspect(|x| println!("{:?}", x));
-            standard_scaler_transform(&input_df, &meta)
-                .inspect(|x| println!("{:?}", x));
+                .inspect(|x| println!("FITTING: {:?}", x));
 
+            return standard_scaler_transform(&input_df, &meta)
+                .inspect(|x| println!("TRANSFORM: {:?}", x))
+                .probe();
         });
         input.advance_to(0);
         for person in 0 .. 10 {
             input.insert(person);
         }
-        input.flush(); // Flush the input to push changes to the computation
-
-        worker.step(); // Step the computation to process all pending events
         input.advance_to(1);
+        input.flush();
+        println!("starting time 0.");
+        worker.step();
+        thread::sleep(std::time::Duration::from_millis(500));
+        println!("starting time 1");
+        worker.step();
+        thread::sleep(std::time::Duration::from_millis(500));
+        println!("starting time 2");
+        worker.step();
+        thread::sleep(std::time::Duration::from_millis(500));
+        println!("starting time 3");
+        input.advance_to(3);
         for person in 10 .. 20 {
             input.insert(person);
         }
-        input.advance_to(2);
+        input.advance_to(4);
+        input.flush();
+        worker.step();
+        thread::sleep(std::time::Duration::from_millis(1000));
+        println!("starting time 4");
+        worker.step();
+        thread::sleep(std::time::Duration::from_millis(1000));
+        println!("starting time 5");
+        worker.step();
+        thread::sleep(std::time::Duration::from_millis(1000));
+        println!("starting time 6");
+        worker.step();
+        thread::sleep(std::time::Duration::from_millis(1000))
 
     }).expect("Computation terminated abnormally");
 }
