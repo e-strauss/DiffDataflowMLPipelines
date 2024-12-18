@@ -29,7 +29,7 @@ fn demo1() {
 
             // create a new collection from our input.
             let input_df = input.to_collection(scope)
-                .inspect(|x| println!("STARTd: {:?}", x));
+                .inspect(|x| println!("START: {:?}", x));
 
             // if (m2, m1) and (m1, p), then output (m1, (m2, p))
             let input_df = input_df
@@ -48,31 +48,30 @@ fn demo1() {
         }
         input.advance_to(1);
         input.flush();
-        println!("starting time 0.");
+        println!("step 0, time 0");
         worker.step();
         thread::sleep(std::time::Duration::from_millis(500));
-        println!("starting time 1");
+        println!("step 1");
         worker.step();
         thread::sleep(std::time::Duration::from_millis(500));
-        println!("starting time 2");
+        println!("step 2");
         worker.step();
         thread::sleep(std::time::Duration::from_millis(500));
-        println!("starting time 3");
-        input.advance_to(3);
+        println!("step 3, time 1");
         for person in 10 .. 20 {
             input.insert(person);
         }
-        input.advance_to(4);
+        input.advance_to(2);
         input.flush();
         worker.step();
         thread::sleep(std::time::Duration::from_millis(1000));
-        println!("starting time 4");
+        println!("step 4");
         worker.step();
         thread::sleep(std::time::Duration::from_millis(1000));
-        println!("starting time 5");
+        println!("step 5");
         worker.step();
         thread::sleep(std::time::Duration::from_millis(1000));
-        println!("starting time 6");
+        println!("step 6");
         worker.step();
         thread::sleep(std::time::Duration::from_millis(1000))
 
