@@ -6,5 +6,4 @@ edition = "2021"
 [dependencies]
 #timely = { git = "https://github.com/TimelyDataflow/timely-dataflow" }
 differential-dataflow = { git = "https://github.com/TimelyDataflow/differential-dataflow",branch = "master" }
-noisy_float = "0.2.0"
 timely = "0.15.0"
