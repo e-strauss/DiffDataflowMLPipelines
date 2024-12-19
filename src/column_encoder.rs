@@ -5,12 +5,49 @@ use differential_dataflow::operators::Reduce;
 use timely::dataflow::Scope;
 use crate::row::{Row, RowValue};
 
-pub trait ColumnEncoder<G: Scope, Meta> {
+pub trait ColumnEncoder<G: Scope>
+where
+    G::Timestamp: Lattice+Ord,
+{
     /// Fits the encoder on the input data and returns metadata.
-    fn fit(&self, data: &Collection<G, (usize, RowValue)>) -> Meta;
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>);
 
     /// Transforms the input data using the provided metadata.
-    fn transform(&self, data: &Collection<G, (usize, RowValue)>, meta: &Meta) -> Collection<G, (usize, i64)>;
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G,  i64>;
+}
+
+pub struct StandardScaler <G: Scope> {
+    mean: Option<Collection<G, (usize, i64)>>,
+}
+
+impl<G: Scope> StandardScaler<G> {
+    pub fn new() -> Self<>{
+        Self{mean:None}
+    }
+}
+
+impl<G: Scope> ColumnEncoder<G> for StandardScaler<G>
+where G::Timestamp: Lattice+Ord {
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
+        let m = data.reduce(|_key, input, output| {
+            let mut sum: i64 = 0;
+            for (v, _count) in input {
+                sum += (*v).get_integer();
+            }
+            sum = sum / input.len() as i64;
+            output.push((sum, 1));
+        });
+        self.mean = Some(m);
+    }
+
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, i64> {
+        let mean = match &self.mean {
+            None => panic!("called transform before fit"),
+            Some(m) => m
+        };
+        data.join(&mean)
+            .map(|(_key, (val, mean))| val.get_integer() - mean )
+    }
 }
 
 pub fn standard_scale_fit<G: Scope>(
@@ -58,13 +95,19 @@ where
 
 pub fn static_encoder<G: Scope>(
     data: &Collection<G, (usize, Row)>,
-) -> Collection<G, (usize, i64)>
+) -> Collection<G, i64>
 where G::Timestamp: Lattice+Ord{
-    data.reduce(|_key, input, output| {
-        let mut sum = 0;
-        for (row, count) in input {
-            sum += (*row).values[0].get_integer()*(i64::try_from(*count).unwrap());
-        }
-        output.push((sum, 1));
-    })
+    // data.reduce(|_key, input, output| {
+    //     let mut sum = 0;
+    //     for (row, count) in input {
+    //         sum += (*row).values[0].get_integer()*(i64::try_from(*count).unwrap());
+    //     }
+    //     output.push((sum, 1));
+    // })
+    let tmp = data.map(| (k, row)| (k, row.values[0].clone()));
+    let mut scaler = StandardScaler::new();
+    scaler.fit(&tmp);
+    scaler.transform(&tmp)
+
+
 }

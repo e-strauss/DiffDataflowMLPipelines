@@ -190,22 +190,12 @@ fn demo_row_struct(quiet: bool) {
         worker.dataflow(|scope| {
             let mut input_df = input.to_collection(scope)
                 .map(| v: Row | (1, v));
-                //.inspect(|x| println!("START: {:?}", x));
-                //.map(| v:(&str,isize,isize)| (1, v.1 ));
             if !quiet {
-                input_df = input_df.inspect(|x| println!("START: {:?}", x));
+                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
             static_encoder(&input_df)
-                .inspect(|x| println!("FITTING: {:?}", x))
+                .inspect(|x| println!("OUT: {:?}", x))
                 .probe()
-            // let out = input_df.reduce(|_key, input, output| {
-            //     let mut sum = 0;
-            //     for (row, count) in input {
-            //         sum += (*row).values[0].get_integer();
-            //     }
-            //     output.push((sum, 1));
-            // });
-            //return out.inspect(|x| println!("FITTING: {:?}", x)).probe();
         });
 
         input.advance_to(0);

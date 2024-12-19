@@ -17,6 +17,17 @@ impl RowValue {
     }
 }
 
+// impl Sub for RowValue {
+//     type Output = Self;
+//
+//     fn sub(self, rhs: Self) -> Self::Output {
+//         match (self, rhs) {
+//             (RowValue::Integer(i), RowValue::Integer(j)) => {RowValue::Integer(i - j)}
+//             (_, _) => panic!("sub - called on non-integer row value"),
+//         }
+//     }
+// }
+
 impl Eq for RowValue {}
 
 impl PartialEq<Self> for RowValue {
