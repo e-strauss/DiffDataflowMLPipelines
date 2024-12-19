@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use timely::{Data, ExchangeData};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

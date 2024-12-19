@@ -1,17 +1,18 @@
 mod row;
-use row::{Row, RowValue}; // Import the Row struct and RowValue enum
+mod column_encoder;
+
+use row::{Row}; // Import the Row struct and RowValue enum
+use column_encoder::static_encoder;
 
 extern crate timely;
 extern crate differential_dataflow;
 
 use std::thread;
 use differential_dataflow::input::InputSession;
-use differential_dataflow::operators::{Join, Reduce, Threshold};
-use differential_dataflow::{Collection, Hashable};
-use differential_dataflow::lattice::Lattice;
+use differential_dataflow::operators::{Reduce};
 use timely::communication::allocator::Generic;
-use timely::dataflow::Scope;
 use timely::worker::Worker;
+use crate::column_encoder::{recode_fit, standard_scale_fit, standard_scale_transform};
 
 const SLEEPING_DURATION: u64 = 250;
 
@@ -89,6 +90,7 @@ fn demo_recode(quiet: bool) {
             if !quiet {
                 meta = meta.inspect(|x| println!("FITTING: {:?}", x));
             }
+            // TODO use join for transform
 
             return meta.probe();
         });
@@ -180,72 +182,6 @@ fn make_steps(worker: &mut Worker<Generic>, t: isize, q: bool) {
     thread::sleep(std::time::Duration::from_millis(SLEEPING_DURATION));
 }
 
-//TODO move encoders to different separate file
-
-fn standard_scale_fit<G: Scope>(
-    data: &Collection<G, (usize, isize)>,
-) -> Collection<G, (usize, isize)>
-where G::Timestamp: Lattice+Ord
-{
-    data.reduce(|_key, input, output| {
-            let mut sum: isize = 0;
-            //println!("{}", input.len());
-            for (v, count) in input {
-                sum += *v * count;
-            }
-            sum = sum / input.len() as isize;
-            output.push((sum, 1));
-        })
-}
-
-fn standard_scale_transform<G: Scope>(
-    data: &Collection<G, (usize, isize)>,
-    meta: &Collection<G, (usize, isize)>,
-) -> Collection<G, isize>
-where G::Timestamp: Lattice+Ord
-{
-    data.join(meta)
-        .map(|(_key, val)| val.0 - val.1)
-}
-
-fn recode_fit<G: Scope, D>(
-    data: &Collection<G, (usize, D)>,
-) -> Collection<G, (usize, (D, usize))>
-where
-    G::Timestamp: Lattice+Ord,
-    D: differential_dataflow::ExchangeData + std::hash::Hash
-{
-    data.distinct()
-        .reduce(|_key, input, output| {
-
-        println!("{}", input.len());
-        for (code, (val, _count)) in input.iter().enumerate(){
-            output.push((((*val).clone(), code), 1));
-        };
-    })
-}
-
-fn standard_scale_fit2<G: Scope, K>(
-    data: &Collection<G, (usize, K)>,
-    col_id: usize,
-) -> Collection<G, (usize, K)>
-where
-    G::Timestamp: Lattice+Ord,
-    K: Clone + 'static, K: Hashable, K: differential_dataflow::ExchangeData
-{
-    println!("{}", col_id);
-    data.clone()
-    //     .reduce(|_key, input, output| {
-    //     let mut sum: isize = 0;
-    //     for (vals, count) in input {
-    //         let val = (*vals).1;
-    //         sum += *val * count;
-    //     }
-    //     sum = sum / input.len() as isize;
-    //     output.push((sum, 1));
-    // })
-}
-
 fn demo_row_struct(quiet: bool) {
     println!("DEMO 2\n");
     // Input: Tuple
@@ -259,14 +195,17 @@ fn demo_row_struct(quiet: bool) {
             if !quiet {
                 input_df = input_df.inspect(|x| println!("START: {:?}", x));
             }
-            let out = input_df.reduce(|_key, input, output| {
-                let mut sum = 0;
-                for (row, count) in input {
-                    sum += (*row).values[0].get_integer();
-                }
-                output.push((sum, 1));
-            });
-            return out.inspect(|x| println!("FITTING: {:?}", x)).probe();
+            static_encoder(&input_df)
+                .inspect(|x| println!("FITTING: {:?}", x))
+                .probe()
+            // let out = input_df.reduce(|_key, input, output| {
+            //     let mut sum = 0;
+            //     for (row, count) in input {
+            //         sum += (*row).values[0].get_integer();
+            //     }
+            //     output.push((sum, 1));
+            // });
+            //return out.inspect(|x| println!("FITTING: {:?}", x)).probe();
         });
 
         input.advance_to(0);
