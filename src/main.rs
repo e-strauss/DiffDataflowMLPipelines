@@ -1,3 +1,6 @@
+mod row;
+use row::{Row, RowValue}; // Import the Row struct and RowValue enum
+
 extern crate timely;
 extern crate differential_dataflow;
 
@@ -19,7 +22,7 @@ fn main() {
     demo_sum(true);
     // demo2 is a test using an input collection containing multiples columns, but we only transform
     // the one numeric column
-    demo2(true);
+    demo2(false);
 }
 
 fn demo_standard_scale(quiet: bool) {
@@ -205,12 +208,12 @@ where G::Timestamp: Lattice+Ord
         .map(|(_key, val)| val.0 - val.1)
 }
 
-fn recode_fit<G: Scope>(
-    data: &Collection<G, (usize, String)>,
-) -> Collection<G, (usize, (String, usize))>
+fn recode_fit<G: Scope, D>(
+    data: &Collection<G, (usize, D)>,
+) -> Collection<G, (usize, (D, usize))>
 where
     G::Timestamp: Lattice+Ord,
-    //D: differential_dataflow::ExchangeData + std::hash::Hash
+    D: differential_dataflow::ExchangeData + std::hash::Hash
 {
     data.distinct()
         .reduce(|_key, input, output| {
@@ -271,7 +274,8 @@ fn demo2(quiet: bool) {
         });
         input.advance_to(0);
         for person in 0 .. 10 {
-            input.insert(("aa", person, 123));
+
+            input.insert(Row::with_values(1, 2.0, person.to_string()));
         }
     }).expect("Computation terminated abnormally");
     println!("--------------------------------------------------------");
