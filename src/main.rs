@@ -14,7 +14,7 @@ const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     // demo1 is a first test using an input collection with only 1 numeric column
-    demo_standard_scaler(true);
+    demo_standard_scale(true);
     demo_recode(false);
     demo_sum(true);
     // demo2 is a test using an input collection containing multiples columns, but we only transform
@@ -22,8 +22,8 @@ fn main() {
     demo2(true);
 }
 
-fn demo_standard_scaler(quiet: bool) {
-    println!("DEMO STANDARD SCALER\n");
+fn demo_standard_scale(quiet: bool) {
+    println!("DEMO STANDARD SCALE\n");
     // Input: Single Value
     timely::execute_from_args(std::env::args(), move |worker| {
         // create an input collection of data.
@@ -79,7 +79,7 @@ fn demo_recode(quiet: bool) {
         // define a new computation.
         let _probe = worker.dataflow(|scope| {
             // create a new collection from our input.
-            let mut input_df = input.to_collection(scope).map(|v| (1, v));;
+            let mut input_df = input.to_collection(scope).map(|v| (1, v));
             if !quiet {
                 input_df = input_df.inspect(|x| println!("START: {:?}", x))
             }
