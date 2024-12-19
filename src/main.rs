@@ -1,3 +1,6 @@
+mod row;
+use row::{Row, RowValue}; // Import the Row struct and RowValue enum
+
 extern crate timely;
 extern crate differential_dataflow;
 
@@ -13,13 +16,11 @@ use timely::worker::Worker;
 const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
-    // demo1 is a first test using an input collection with only 1 numeric column
     demo_standard_scale(true);
     demo_recode(false);
     demo_sum(true);
-    // demo2 is a test using an input collection containing multiples columns, but we only transform
-    // the one numeric column
-    demo2(true);
+    // a test using an input collection containing multiples columns using the new row struct
+    demo_row_struct(false);
 }
 
 fn demo_standard_scale(quiet: bool) {
@@ -179,6 +180,8 @@ fn make_steps(worker: &mut Worker<Generic>, t: isize, q: bool) {
     thread::sleep(std::time::Duration::from_millis(SLEEPING_DURATION));
 }
 
+//TODO move encoders to different separate file
+
 fn standard_scale_fit<G: Scope>(
     data: &Collection<G, (usize, isize)>,
 ) -> Collection<G, (usize, isize)>
@@ -205,12 +208,12 @@ where G::Timestamp: Lattice+Ord
         .map(|(_key, val)| val.0 - val.1)
 }
 
-fn recode_fit<G: Scope>(
-    data: &Collection<G, (usize, String)>,
-) -> Collection<G, (usize, (String, usize))>
+fn recode_fit<G: Scope, D>(
+    data: &Collection<G, (usize, D)>,
+) -> Collection<G, (usize, (D, usize))>
 where
     G::Timestamp: Lattice+Ord,
-    //D: differential_dataflow::ExchangeData + std::hash::Hash
+    D: differential_dataflow::ExchangeData + std::hash::Hash
 {
     data.distinct()
         .reduce(|_key, input, output| {
@@ -243,35 +246,32 @@ where
     // })
 }
 
-fn demo2(quiet: bool) {
+fn demo_row_struct(quiet: bool) {
     println!("DEMO 2\n");
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
         worker.dataflow(|scope| {
             let mut input_df = input.to_collection(scope)
-                .map(| v | (1, v));
+                .map(| v: Row | (1, v));
                 //.inspect(|x| println!("START: {:?}", x));
                 //.map(| v:(&str,isize,isize)| (1, v.1 ));
             if !quiet {
                 input_df = input_df.inspect(|x| println!("START: {:?}", x));
             }
-            // let meta = standard_scale_fit2(&input_df, 1)
-            //     .inspect(|x| println!("FIT: {:?}", x));
-            // input_df
-            //     .reduce(|_key, input, output| {
-            //         for (v, count) in input {
-            //             println!("{:?}", (*v).1)
-            //         }
-            //         output.push((3, 1));
-            //     })
-            //     .inspect(|x| println!("FIT: {:?}", x));
-            // standard_scale_transform(&input_df, &meta)
-            //     .inspect(|x| println!("TRANSFORM: {:?}", x));
+            let out = input_df.reduce(|_key, input, output| {
+                let mut sum = 0;
+                for (row, count) in input {
+                    sum += (*row).values[0].get_integer();
+                }
+                output.push((sum, 1));
+            });
+            return out.inspect(|x| println!("FITTING: {:?}", x)).probe();
         });
+
         input.advance_to(0);
         for person in 0 .. 10 {
-            input.insert(("aa", person, 123));
+            input.insert(Row::with_values(person, 2.0, person.to_string()));
         }
     }).expect("Computation terminated abnormally");
     println!("--------------------------------------------------------");
