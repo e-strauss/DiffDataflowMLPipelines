@@ -1,8 +1,6 @@
 extern crate timely;
 extern crate differential_dataflow;
 
-use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
 use std::thread;
 use differential_dataflow::input::InputSession;
 use differential_dataflow::operators::{Join, Reduce, Threshold};
@@ -12,149 +10,173 @@ use timely::communication::allocator::Generic;
 use timely::dataflow::Scope;
 use timely::worker::Worker;
 
+const SLEEPING_DURATION: u64 = 250;
+
 fn main() {
     // demo1 is a first test using an input collection with only 1 numeric column
-    demo_standard_scaler();
-    println!("--------------------------------------------------------");
-    demo_recode();
-    println!("--------------------------------------------------------");
+    demo_standard_scaler(true);
+    demo_recode(false);
+    demo_sum(true);
     // demo2 is a test using an input collection containing multiples columns, but we only transform
     // the one numeric column
-    demo_sum();
-    println!("--------------------------------------------------------");
-    demo2();
+    demo2(true);
 }
 
-fn demo_standard_scaler() {
+fn demo_standard_scaler(quiet: bool) {
+    println!("DEMO STANDARD SCALER\n");
     // Input: Single Value
     timely::execute_from_args(std::env::args(), move |worker| {
-
         // create an input collection of data.
         let mut input = InputSession::new();
-
         // define a new computation.
-        let probe = worker.dataflow(|scope| {
-
+        let _probe = worker.dataflow(|scope| {
             // create a new collection from our input.
-            let input_df = input.to_collection(scope)
-                .inspect(|x| println!("START: {:?}", x))
-                .map(| v | (1, v));
+            let mut input_df = input.to_collection(scope);
+            if !quiet {
+                input_df = input_df.inspect(|x| println!("START: {:?}", x));
+            }
+            let input_df = input_df.map(|v| (1, v));
 
-            let meta = standard_scale_fit(&input_df)
-                .inspect(|x| println!("FITTING: {:?}", x));
+            let mut meta = standard_scale_fit(&input_df);
+            if !quiet {
+                meta = meta.inspect(|x| println!("FITTING: {:?}", x));
+            }
 
-            return standard_scale_transform(&input_df, &meta)
-                .inspect(|x| println!("TRANSFORM: {:?}", x))
-                .probe();
+            let mut transformed = standard_scale_transform(&input_df, &meta);
+            if !quiet {
+                transformed = transformed.inspect(|x| println!("TRANSFORM: {:?}", x));
+            }
+
+            return transformed.probe();
+
         });
+
         input.advance_to(0);
         for person in 0 .. 10 {
             input.insert(person);
         }
         input.advance_to(1);
         input.flush();
-        make_steps(worker, 0);
+        make_steps(worker, 0, quiet);
+
         for person in 10 .. 20 {
             input.insert(person);
         }
         input.advance_to(2);
         input.flush();
-        make_steps(worker, 1);
+        make_steps(worker, 1, quiet);
 
     }).expect("Computation terminated abnormally");
+    println!("--------------------------------------------------------");
 }
 
-fn demo_recode() {
+fn demo_recode(quiet: bool) {
+    println!("DEMO RECODE\n");
     // Input: Single Value
     timely::execute_from_args(std::env::args(), move |worker| {
-
         // create an input collection of data.
         let mut input = InputSession::new();
-
         // define a new computation.
-        let probe = worker.dataflow(|scope| {
-
+        let _probe = worker.dataflow(|scope| {
             // create a new collection from our input.
-            let input_df = input.to_collection(scope)
-                .inspect(|x| println!("START: {:?}", x))
-                .map(| v | (1, v));
+            let mut input_df = input.to_collection(scope).map(|v| (1, v));;
+            if !quiet {
+                input_df = input_df.inspect(|x| println!("START: {:?}", x))
+            }
 
-            let meta = recode_fit(&input_df)
-                .inspect(|x| println!("FITTING: {:?}", x));
+            let mut meta = recode_fit(&input_df);
+            if !quiet {
+                meta = meta.inspect(|x| println!("FITTING: {:?}", x));
+            }
 
             return meta.probe();
         });
+
         input.advance_to(0);
         for person in 0 .. 10 {
             input.insert(person.to_string() + "Person");
         }
         input.advance_to(1);
         input.flush();
-        make_steps(worker, 0);
+        make_steps(worker, 0, quiet);
+
         for person in 10 .. 20 {
             input.insert(person.to_string() + "Person");
         }
         input.advance_to(2);
         input.flush();
-        make_steps(worker, 1);
+        make_steps(worker, 1, quiet);
+
+        for person in 0 .. 5 {
+            input.insert(person.to_string() + "Person");
+        }
+        input.advance_to(2);
+        input.flush();
+        make_steps(worker, 1, quiet);
 
     }).expect("Computation terminated abnormally");
+    println!("--------------------------------------------------------");
 }
 
-fn demo_sum() {
+fn demo_sum(quiet: bool) {
+    println!("SUM DEMO\n");
     // Input: Single Value
     timely::execute_from_args(std::env::args(), move |worker| {
-
         // create an input collection of data.
         let mut input = InputSession::new();
-
         // define a new computation.
-        let probe = worker.dataflow(|scope| {
-
+        let _probe = worker.dataflow(|scope| {
             // create a new collection from our input.
-            let input_df = input.to_collection(scope)
-                .inspect(|x| println!("START: {:?}", x))
-                .map(| v | (1, v));
+            let mut input_df = input.to_collection(scope).map(| v | (1, v));
+            if !quiet {
+                input_df = input_df.inspect(|x| println!("START: {:?}", x));
+            }
 
-            return input_df
+            input_df = input_df
                 .reduce(|_key, input, output| {
                     let mut sum = 0;
                     println!("{}", input.len());
-                    for (i, c) in input {
+                    for (i, _c) in input {
                         sum += *i;
                     }
                     output.push((sum, 1));
-                })
-                .inspect(|x| println!("SUM: {:?}", x))
-                .probe();
+                });
+            if !quiet {
+                input_df = input_df
+                    .inspect(|x| println!("SUM: {:?}", x))
+            }
+            return input_df.probe();
         });
+
         input.advance_to(0);
         for person in 0 .. 10 {
             input.insert(person);
         }
         input.advance_to(1);
         input.flush();
-        make_steps(worker, 0);
+        make_steps(worker, 0, quiet);
+
         for person in 10 .. 20 {
             input.insert(person);
         }
         input.advance_to(2);
         input.flush();
-        make_steps(worker, 1);
+        make_steps(worker, 1, quiet);
 
     }).expect("Computation terminated abnormally");
+    println!("--------------------------------------------------------");
 }
 
-fn make_steps(worker: &mut Worker<Generic>, t: isize) {
-    println!("step 0, time {}", t);
+fn make_steps(worker: &mut Worker<Generic>, t: isize, q: bool) {
+    if !q {println!("step 0, time {}", t)}
     worker.step();
-    thread::sleep(std::time::Duration::from_millis(500));
-    println!("step 1, time {}", t);
+    thread::sleep(std::time::Duration::from_millis(SLEEPING_DURATION));
+    if !q {println!("step 1, time {}", t)}
     worker.step();
-    thread::sleep(std::time::Duration::from_millis(500));
-    println!("step 2, time {}", t);
+    thread::sleep(std::time::Duration::from_millis(SLEEPING_DURATION));
+    if !q {println!("step 2, time {}", t)}
     worker.step();
-    thread::sleep(std::time::Duration::from_millis(500));
+    thread::sleep(std::time::Duration::from_millis(SLEEPING_DURATION));
 }
 
 fn standard_scale_fit<G: Scope>(
@@ -192,16 +214,10 @@ where
 {
     data.distinct()
         .reduce(|_key, input, output| {
-        let mut distinct = HashMap::new(); //OrdHashMap::new();
 
         println!("{}", input.len());
-        for (v, _count) in input {
-            if !distinct.contains_key(*v) {
-                distinct.insert((*v).clone(), distinct.len());
-            }
-        }
-        for pair in distinct{
-            output.push((pair, 1));
+        for (code, (val, _count)) in input.iter().enumerate(){
+            output.push((((*val).clone(), code), 1));
         };
     })
 }
@@ -214,6 +230,7 @@ where
     G::Timestamp: Lattice+Ord,
     K: Clone + 'static, K: Hashable, K: differential_dataflow::ExchangeData
 {
+    println!("{}", col_id);
     data.clone()
     //     .reduce(|_key, input, output| {
     //     let mut sum: isize = 0;
@@ -226,17 +243,19 @@ where
     // })
 }
 
-fn demo2() {
+fn demo2(quiet: bool) {
+    println!("DEMO 2\n");
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
         worker.dataflow(|scope| {
-            let input_df = input.to_collection(scope)
-                .inspect(|x| println!("START: {:?}", x))
+            let mut input_df = input.to_collection(scope)
                 .map(| v | (1, v));
                 //.inspect(|x| println!("START: {:?}", x));
                 //.map(| v:(&str,isize,isize)| (1, v.1 ));
-
+            if !quiet {
+                input_df = input_df.inspect(|x| println!("START: {:?}", x));
+            }
             // let meta = standard_scale_fit2(&input_df, 1)
             //     .inspect(|x| println!("FIT: {:?}", x));
             // input_df
@@ -255,4 +274,5 @@ fn demo2() {
             input.insert(("aa", person, 123));
         }
     }).expect("Computation terminated abnormally");
+    println!("--------------------------------------------------------");
 }
