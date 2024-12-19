@@ -7,3 +7,4 @@ edition = "2021"
 #timely = { git = "https://github.com/TimelyDataflow/timely-dataflow" }
 differential-dataflow = { git = "https://github.com/TimelyDataflow/differential-dataflow",branch = "master" }
 timely = "0.15.0"
+serde = { version = "1.0.216", features = ["derive"] }

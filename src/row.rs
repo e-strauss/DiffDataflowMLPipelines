@@ -1,10 +1,21 @@
 use std::cmp::Ordering;
+use timely::{Data, ExchangeData};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RowValue {
     Integer(i64),
     Text(String),
     Float(f64),
+}
+
+impl RowValue {
+    pub fn get_integer(&self) -> i64 {
+        match *self {
+            RowValue::Integer(a) => {a}
+            _ => panic!("get_integer called on non-integer row value"),
+        }
+    }
 }
 
 impl Eq for RowValue {}
@@ -42,7 +53,7 @@ impl Ord for RowValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Row {
     pub values: Vec<RowValue>,
     pub size: usize,
@@ -71,13 +82,16 @@ impl Eq for Row {}
 
 impl PartialEq<Self> for Row {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        if self.size != other.size {
+            false;
+        }
+        self.values.eq(&other.values)
     }
 }
 
 impl PartialOrd<Self> for Row {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        todo!()
+        self.values.partial_cmp(&other.values)
     }
 }
 
