@@ -56,12 +56,14 @@ pub fn standard_scale_fit<G: Scope>(
 where G::Timestamp: Lattice+Ord
 {
     data.reduce(|_key, input, output| {
-        let mut sum: isize = 0;
+        let mut sum = 0;
+        let mut counts= 0;
         //println!("{}", input.len());
         for (v, count) in input {
             sum += *v * count;
+            counts += count;
         }
-        sum = sum / input.len() as isize;
+        sum = sum / counts;
         output.push((sum, 1));
     })
 }
