@@ -76,6 +76,17 @@ impl Row {
             size: 0,
         }
     }
+    pub fn append_integer(&mut self, value: i64) {
+        self.values.push(RowValue::Integer(value));
+        self.size += 1;
+    }
+
+    pub fn append_row_value(mut self, val: RowValue) -> Self {
+        self.values.push(val);
+        self.size += 1;
+        self
+    }
+
     // Create a new Row with one integer, float, and string
     pub fn with_values(integer: i64, float: f64, text: String) -> Self {
         Row {
@@ -84,6 +95,13 @@ impl Row {
                 RowValue::Float(float),
                 RowValue::Text(text), ],
             size: 3,
+        }
+    }
+
+    pub fn with_row_value(val: RowValue) -> Self{
+        Row {
+            values: vec![val],
+            size: 1,
         }
     }
 }

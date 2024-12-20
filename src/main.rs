@@ -188,8 +188,7 @@ fn demo_row_struct(quiet: bool) {
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
         worker.dataflow(|scope| {
-            let mut input_df = input.to_collection(scope)
-                .map(| v: Row | (1, v));
+            let mut input_df = input.to_collection(scope);
             if !quiet {
                 input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
@@ -200,7 +199,7 @@ fn demo_row_struct(quiet: bool) {
 
         input.advance_to(0);
         for person in 0 .. 10 {
-            input.insert(Row::with_values(person, 2.0, person.to_string()));
+            input.insert((person,Row::with_values(person as i64, 2.0, person.to_string())));
         }
     }).expect("Computation terminated abnormally");
     println!("--------------------------------------------------------");
