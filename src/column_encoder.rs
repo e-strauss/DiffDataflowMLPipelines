@@ -9,12 +9,51 @@ pub trait ColumnEncoder<G: Scope>
 where
     G::Timestamp: Lattice+Ord,
 {
-    /// Fits the encoder on the input data and returns metadata.
+    /// Fits the encoder on the input data and stores metadata internally (in the struct)
     fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>);
 
-    /// Transforms the input data using the provided metadata.
+    /// Transforms the input data using the internally stored metadata
     fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G,  (usize, RowValue)>;
 }
+
+// multi_column_encoder = sklearn's ColumnTransformer
+pub fn multi_column_encoder<G: Scope, Enc>(
+    data: &Collection<G, (usize, Row)>,
+    config: Vec<(usize, Enc)>
+) -> Collection<G, Row>
+where
+    G::Timestamp: Lattice+Ord,
+    Enc: ColumnEncoder<G> {
+    let mut col_iterator = config.into_iter();
+
+    if let Some((col_id, mut first_enc)) = col_iterator.next() {
+        // Handle the first element init out with Row with one value
+        // slice out current column
+        let col = data.map(move | (ix, row)| (1,(ix, row.values[col_id].clone())));
+        first_enc.fit(&col);
+        let mut out = first_enc
+            .transform(&col)
+            .map(|(ix, val)| (ix, Row::with_row_value(val)));
+
+        // Process the rest using the same iterator
+        for (col_id, mut enc) in col_iterator {
+            // slice out current column
+            let col = data.map(move | (ix, row)|
+                (1, (ix, row.values[col_id].clone())));
+            enc.fit(&col);
+            out = out.join(&enc.transform(&col))
+                .map(|(ix, (row, row_val))|
+                    (ix, row.append_row_value(row_val)));
+        }
+        out.map(|(_ix, val)| val)
+    } else {
+        panic!("no column encoder specified")
+    }
+}
+
+/****************************************/
+/*      ENCODER IMPLEMENTATIONS:        */
+/****************************************/
 
 pub struct StandardScaler <G: Scope> {
     mean: Option<Collection<G, (usize, i64)>>,
@@ -95,6 +134,8 @@ where
         })
 }
 
+// static encoder is just for testing purposes
+// same as multi_column_encoder but with predefined, static encoding scheme
 pub fn static_encoder<G: Scope>(
     data: &Collection<G, (usize, Row)>,
 ) -> Collection<G, RowValue>
@@ -104,28 +145,3 @@ where G::Timestamp: Lattice+Ord{
     scaler.fit(&tmp);
     scaler.transform(&tmp).map(|(_ix, val)| val)
 }
-
-// pub fn multi_column_encoder<G: Scope, Enc>(
-//     data: &Collection<G, (usize, Row)>,
-//     config: &mut [(usize, &Enc)]
-// ) -> Collection<G, Row>
-// where
-//     G::Timestamp: Lattice+Ord,
-//     Enc: ColumnEncoder<G> + Copy {
-//     let (first_col, first_enc) = (*config)[0];
-//     let col = data.map(move | (k, row)| (1,(k, row.values[first_col].clone())));
-//     let mut first_enc = first_enc.clone();
-//     first_enc.fit(&col);
-//     let mut out = first_enc
-//         .transform(&col)
-//         .map(|(ix, val)| (ix, Row::with_row_value(val)));
-//     for (col_id, enc) in & mut config[1..] {
-//         let col = data.map(| (k, row)| (1, (k, row.values[*col_id].clone())));
-//         let mut enc = enc.clone();
-//         enc.fit(&col);
-//         let num_col = enc.transform(&col);
-//         let tmp = out.join(&num_col);
-//         out = tmp.map(|(ix, (row, row_val))| (ix, row.append_row_value(row_val)));
-//     }
-//     return out.map(|(_ix, val)| val);
-// }

@@ -12,16 +12,22 @@ use differential_dataflow::input::InputSession;
 use differential_dataflow::operators::{Reduce};
 use timely::communication::allocator::Generic;
 use timely::worker::Worker;
-use crate::column_encoder::{recode_fit, standard_scale_fit, standard_scale_transform};
+use crate::column_encoder::{*};
 
 const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
-    demo_standard_scale(true);
+    print_demo_separator();
+    demo_standard_scale(false);
     demo_recode(false);
-    demo_sum(true);
-    // a test using an input collection containing multiples columns using the new row struct
+    demo_sum(false);
     demo_row_struct(false);
+    demo_multi_column_encoder(false);
+    demo_multi_column_encoder2(false)
+}
+
+fn print_demo_separator() {
+    println!("---------------------------------------------------------------------------");
 }
 
 fn demo_standard_scale(quiet: bool) {
@@ -35,18 +41,18 @@ fn demo_standard_scale(quiet: bool) {
             // create a new collection from our input.
             let mut input_df = input.to_collection(scope);
             if !quiet {
-                input_df = input_df.inspect(|x| println!("START: {:?}", x));
+                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
             let input_df = input_df.map(|v| (1, v));
 
             let mut meta = standard_scale_fit(&input_df);
             if !quiet {
-                meta = meta.inspect(|x| println!("FITTING: {:?}", x));
+                meta = meta.inspect(|x| println!("FITTING META STATE: {:?}", x));
             }
 
             let mut transformed = standard_scale_transform(&input_df, &meta);
             if !quiet {
-                transformed = transformed.inspect(|x| println!("TRANSFORM: {:?}", x));
+                transformed = transformed.inspect(|x| println!("OUT: {:?}", x));
             }
 
             return transformed.probe();
@@ -61,7 +67,7 @@ fn demo_standard_scale(quiet: bool) {
         input.flush();
         make_steps(worker, 0, quiet);
 
-        for person in 10 .. 20 {
+        for person in 0 .. 10 {
             input.insert(person);
         }
         input.advance_to(2);
@@ -69,7 +75,7 @@ fn demo_standard_scale(quiet: bool) {
         make_steps(worker, 1, quiet);
 
     }).expect("Computation terminated abnormally");
-    println!("--------------------------------------------------------");
+    print_demo_separator()
 }
 
 fn demo_recode(quiet: bool) {
@@ -83,14 +89,14 @@ fn demo_recode(quiet: bool) {
             // create a new collection from our input.
             let mut input_df = input.to_collection(scope).map(|v| (1, v));
             if !quiet {
-                input_df = input_df.inspect(|x| println!("START: {:?}", x))
+                input_df = input_df.inspect(|x| println!("IN: {:?}", x))
             }
 
             let mut meta = recode_fit(&input_df);
             if !quiet {
-                meta = meta.inspect(|x| println!("FITTING: {:?}", x));
+                meta = meta.inspect(|x| println!("FITTING META STATE: {:?}", x));
             }
-            // TODO use join for transform
+            // TODO use join for OUT
 
             return meta.probe();
         });
@@ -113,12 +119,12 @@ fn demo_recode(quiet: bool) {
         for person in 0 .. 5 {
             input.insert(person.to_string() + "Person");
         }
-        input.advance_to(2);
+        input.advance_to(3);
         input.flush();
-        make_steps(worker, 1, quiet);
+        make_steps(worker, 2, quiet);
 
     }).expect("Computation terminated abnormally");
-    println!("--------------------------------------------------------");
+    print_demo_separator()
 }
 
 fn demo_sum(quiet: bool) {
@@ -132,7 +138,7 @@ fn demo_sum(quiet: bool) {
             // create a new collection from our input.
             let mut input_df = input.to_collection(scope).map(| v | (1, v));
             if !quiet {
-                input_df = input_df.inspect(|x| println!("START: {:?}", x));
+                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
 
             input_df = input_df
@@ -167,7 +173,7 @@ fn demo_sum(quiet: bool) {
         make_steps(worker, 1, quiet);
 
     }).expect("Computation terminated abnormally");
-    println!("--------------------------------------------------------");
+    print_demo_separator()
 }
 
 fn make_steps(worker: &mut Worker<Generic>, t: isize, q: bool) {
@@ -183,7 +189,7 @@ fn make_steps(worker: &mut Worker<Generic>, t: isize, q: bool) {
 }
 
 fn demo_row_struct(quiet: bool) {
-    println!("DEMO 2\n");
+    println!("DEMO STATIC ENCODER WITH ROW STRUCT\n");
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
@@ -202,5 +208,54 @@ fn demo_row_struct(quiet: bool) {
             input.insert((person,Row::with_values(person as i64, 2.0, person.to_string())));
         }
     }).expect("Computation terminated abnormally");
-    println!("--------------------------------------------------------");
+    print_demo_separator()
+}
+
+fn demo_multi_column_encoder(quiet: bool) {
+    println!("DEMO MULTI COLUMN ENCODER\n");
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        worker.dataflow(|scope| {
+            let mut input_df = input.to_collection(scope);
+            if !quiet {
+                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
+            }
+            let config = vec![(0, StandardScaler::new())];
+            multi_column_encoder(&input_df, config)
+                .inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        input.advance_to(0);
+        for person in 0 .. 10 {
+            input.insert((person,Row::with_values(person as i64, 2.0, person.to_string())));
+        }
+    }).expect("Computation terminated abnormally");
+    print_demo_separator()
+}
+
+fn demo_multi_column_encoder2(quiet: bool) {
+    println!("DEMO MULTI COLUMN ENCODER2\n");
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        worker.dataflow(|scope| {
+            let mut input_df = input.to_collection(scope);
+            if !quiet {
+                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
+            }
+            let config = vec![(0, StandardScaler::new()), (1, StandardScaler::new())];
+            multi_column_encoder(&input_df, config)
+                .inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        input.advance_to(0);
+        for person in 0 .. 10 {
+            let person_int = person as i64;
+            input.insert((person,Row::with_integer_vec(vec![person_int, person_int + 10])));
+        }
+    }).expect("Computation terminated abnormally");
+    print_demo_separator()
 }

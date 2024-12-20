@@ -98,6 +98,13 @@ impl Row {
         }
     }
 
+    pub fn with_integer_vec(integers: Vec<i64>) -> Self {
+        Row {
+            size: integers.len(),
+            values: integers.into_iter().map(RowValue::Integer).collect(),
+        }
+    }
+
     pub fn with_row_value(val: RowValue) -> Self{
         Row {
             values: vec![val],
