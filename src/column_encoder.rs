@@ -3,7 +3,7 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Join, Threshold};
 use differential_dataflow::operators::Reduce;
 use timely::dataflow::Scope;
-use crate::row::{Row, RowValue};
+use crate::types::{Row, RowValue};
 
 pub trait ColumnEncoder<G: Scope>
 where

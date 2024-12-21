@@ -1,7 +1,7 @@
-mod row;
+mod types;
 mod column_encoder;
 
-use row::{Row}; // Import the Row struct and RowValue enum
+use types::{Row}; // Import the Row struct and RowValue enum
 use column_encoder::static_encoder;
 
 extern crate timely;
