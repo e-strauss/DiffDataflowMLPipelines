@@ -17,12 +17,12 @@ use crate::column_encoder::{*};
 const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
-    print_demo_separator();
-    demo_standard_scale(false);
-    demo_recode(false);
-    demo_sum(false);
-    demo_row_struct(false);
-    demo_multi_column_encoder(false);
+    // print_demo_separator();
+    // demo_standard_scale(false);
+    // demo_recode(false);
+    // demo_sum(false);
+    // demo_row_struct(false);
+    //demo_multi_column_encoder(false);
     demo_multi_column_encoder2(false)
 }
 
