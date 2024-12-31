@@ -3,7 +3,10 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Join, Threshold};
 use differential_dataflow::operators::Reduce;
 use timely::dataflow::{Scope, ScopeParent};
-use crate::types::{Row, RowValue, DenseVector};
+use crate::feature_encoders::standard_scaler::StandardScaler;
+use crate::types::row::Row;
+use crate::types::row_value::RowValue;
+use crate::types::dense_vector::DenseVector;
 
 pub trait ColumnEncoder<G: Scope>
 where
@@ -16,76 +19,12 @@ where
     fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G,  (usize, DenseVector)>;
 }
 
-// multi_column_encoder = sklearn's ColumnTransformer
-pub fn multi_column_encoder<G: Scope, Enc>(
-    data: &Collection<G, (usize, Row)>,
-    config: Vec<(usize, Enc)>
-) -> Collection<G, DenseVector>
-where
-    G::Timestamp: Lattice+Ord,
-    Enc: ColumnEncoder<G> {
-    let est_cols = config.len() - 1;
-    let mut col_iterator = config.into_iter();
-    if let Some((col_id, mut first_enc)) = col_iterator.next() {
-        // Handle the first element init out with Row with one value
-        // slice out current column
-        let col = data.map(move | (ix, row)| (1,(ix, row.values[col_id].clone())));
-        first_enc.fit(&col);
-        let mut out = first_enc
-            .transform(&col);
-        // Process the rest using the same iterator
-        for (col_id, mut enc) in col_iterator {
-            // slice out current column
-            let col = data.map(move | (ix, row)|
-                (1, (ix, row.values[col_id].clone())));
-            enc.fit(&col);
-            out = out.join(&enc.transform(&col))
-                .map(|(ix, (row, row_val))|
-                    (ix, row.concat_dense_vector(row_val)));
-        }
-        out.map(|(_ix, val)| val)
-    } else {
-        panic!("no column encoder specified")
-    }
-}
+
 
 /****************************************/
 /*      ENCODER IMPLEMENTATIONS:        */
 /****************************************/
 
-pub struct StandardScaler <G: Scope> {
-    mean: Option<Collection<G, (usize, DenseVector)>>,
-}
-
-impl<G: Scope> StandardScaler<G> {
-    pub fn new() -> Self<>{
-        Self{mean:None}
-    }
-}
-
-impl<G: Scope> ColumnEncoder<G> for StandardScaler<G>
-where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
-        let m = data.reduce(|_key, input, output| {
-            let mut sum: f64 = 0.0;
-            for ((_ix, v), _count) in input {
-                sum += (*v).get_float();
-            }
-            sum = sum / input.len() as f64;
-            output.push((DenseVector::Scalar(sum), 1));
-        });
-        self.mean = Some(m);
-    }
-
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
-        let mean = match &self.mean {
-            None => panic!("called transform before fit"),
-            Some(m) => m
-        };
-        data.join(&mean)
-            .map(|(_key, ((ix, val), mean))| (ix, DenseVector::Scalar(val.get_float() - mean.get_first_value()))  )
-    }
-}
 
 pub fn standard_scale_fit<G: Scope>(
     data: &Collection<G, (usize, isize)>,
