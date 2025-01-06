@@ -7,14 +7,13 @@ use crate::types::dense_vector::DenseVector;
 use crate::types::row::Row;
 
 // multi_column_encoder = sklearn's ColumnTransformer
-pub fn multi_column_encoder<G: Scope, Enc>(
+pub fn multi_column_encoder<'a, G: Scope>(
     data: &Collection<G, (usize, Row)>,
-    config: Vec<(usize, Enc)>
+    config: Vec<(usize, Box<dyn ColumnEncoder<G> + 'a>)>
 ) -> Collection<G, DenseVector>
 where
-    G::Timestamp: Lattice+Ord,
-    Enc: ColumnEncoder<G> {
-    let est_cols = config.len() - 1;
+    G::Timestamp: Lattice+Ord,{
+    let _est_cols = config.len() - 1;
     let mut col_iterator = config.into_iter();
     if let Some((col_id, mut first_enc)) = col_iterator.next() {
         // Handle the first element init out with Row with one value

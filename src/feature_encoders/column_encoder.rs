@@ -2,7 +2,7 @@ use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Join, Threshold};
 use differential_dataflow::operators::Reduce;
-use timely::dataflow::{Scope, ScopeParent};
+use timely::dataflow::{Scope};
 use crate::feature_encoders::standard_scaler::StandardScaler;
 use crate::types::row::Row;
 use crate::types::row_value::RowValue;

@@ -43,7 +43,7 @@ impl PartialEq<Self> for DenseVector {
 }
 
 impl PartialOrd<Self> for DenseVector {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
         todo!()
     }
 }
@@ -72,7 +72,7 @@ impl DenseVector {
         }
     }
 
-    pub fn increase_capacity(mut self, capacity: usize) -> Self {
+    pub fn increase_capacity(self, capacity: usize) -> Self {
         match (self, capacity) {
             (vec, 0) => vec,
             (DenseVector::Scalar(a), cap) => {

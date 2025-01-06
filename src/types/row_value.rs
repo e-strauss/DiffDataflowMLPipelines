@@ -76,12 +76,12 @@ impl Ord for RowValue {
 
 impl Hash for RowValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        match (self) {
-            (RowValue::Integer(a)) => {
+        match self {
+            RowValue::Integer(a) => {
                 0.hash(state);
                 a.hash(state);
             },
-            (RowValue::Text(a)) => {
+            RowValue::Text(a) => {
                 1.hash(state);
                 a.hash(state);
             },

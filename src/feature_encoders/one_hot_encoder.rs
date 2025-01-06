@@ -1,7 +1,7 @@
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Join, Reduce, Threshold};
-use timely::dataflow::{Scope, ScopeParent};
+use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
 use crate::types::dense_vector::DenseVector;
@@ -20,7 +20,6 @@ impl<G: Scope> ColumnEncoder<G> for OneHotEncoder<G>
 where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
         self.distinct = Some(data.map(|(_, (_, row_value))| row_value).distinct().map(|val| (1, val)));
-
     }
 
     fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
@@ -45,7 +44,7 @@ where G::Timestamp: Lattice+Ord {
         let data_inv = data.map(|(key, (i, v)) | (v, (key, i)));
         let joined = data_inv.join(&enumerated);
 
-        joined.map(|(value, ((_key, i), (vector_idx, n)))| {
+        joined.map(|(_value, ((_key, i), (vector_idx, n)))| {
             let mut vec = vec![0f64; n];
             vec[vector_idx] = 1.0;
             (i, DenseVector::Vector(vec))

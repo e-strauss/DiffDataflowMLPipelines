@@ -7,12 +7,12 @@ use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue;
 
-pub struct StandardScaler <G: Scope> {
+pub struct StandardScaler < G: Scope> {
     mean: Option<Collection<G, (usize, DenseVector)>>,
 }
 
 impl<G: Scope> StandardScaler<G> {
-    pub fn new() -> Self<>{
+    pub fn new() -> Self{
         Self{mean:None}
     }
 }

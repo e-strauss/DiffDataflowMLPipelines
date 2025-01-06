@@ -1,7 +1,7 @@
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Join, Reduce, Threshold};
-use timely::dataflow::{Scope, ScopeParent};
+use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
 use crate::types::dense_vector::DenseVector;
@@ -44,7 +44,7 @@ where G::Timestamp: Lattice+Ord {
         let data_inv = data.map(|(key, (i, v)) | (v, (key, i)));
         let joined = data_inv.join(&enumerated);
 
-        joined.map(|(value, ((_key, i), ord))| {
+        joined.map(|(_value, ((_key, i), ord))| {
             (i, DenseVector::Scalar(ord as f64))
         })
     }

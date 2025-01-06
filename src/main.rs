@@ -2,13 +2,12 @@ mod types;
 mod feature_encoders;
 
 use types::row::{Row};
-use feature_encoders::column_encoder::static_encoder;
+// use feature_encoders::column_encoder::static_encoder;
 
 extern crate timely;
 extern crate differential_dataflow;
 
 use std::thread;
-use timely::dataflow::{Scope};
 use differential_dataflow::input::InputSession;
 use differential_dataflow::operators::{Reduce};
 use timely::communication::allocator::Generic;
@@ -22,13 +21,14 @@ use crate::feature_encoders::standard_scaler::StandardScaler;
 const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
-    // print_demo_separator();
-     //demo_standard_scale(false);
-    // demo_recode(false);
-    // demo_sum(false);
-    // demo_row_struct(false);
-    //demo_multi_column_encoder(false);
-    demo_multi_column_encoder2(false)
+    print_demo_separator();
+    demo_standard_scale(false);
+    demo_recode(false);
+    demo_sum(false);
+    demo_row_struct(false);
+    demo_multi_column_encoder(false);
+    demo_multi_column_encoder2(false);
+    demo_multi_column_encoder3(false);
 }
 
 fn print_demo_separator() {
@@ -226,10 +226,10 @@ fn demo_multi_column_encoder(quiet: bool) {
             if !quiet {
                 input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
-            let config = vec![(0, StandardScaler::new())];
-            /*let config: Vec<(usize, Box<dyn ColumnEncoder<_>>)> = vec![
-                (0, Box::new(StandardScaler::new())),
-            ];*/
+
+            let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
+            config.push((0, Box::new(StandardScaler::new())));
+
             multi_column_encoder(&input_df, config)
                 .inspect(|x| println!("OUT: {:?}", x))
                 .probe()
@@ -253,11 +253,12 @@ fn demo_multi_column_encoder2(quiet: bool) {
             if !quiet {
                 input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
-            let config  = vec![(0, OrdinalEncoder::new()), (1, OrdinalEncoder::new())];
-            /*let config: Vec<(usize, Box<dyn ColumnEncoder<_>>)> = vec![
+            //let config  = vec![(0, OrdinalEncoder::new()), (1, OrdinalEncoder::new())];
+            let config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = vec![
                 (0, Box::new(StandardScaler::new())),
                 (1, Box::new(OneHotEncoder::new())),
-            ];*/
+            ];
+
             multi_column_encoder(&input_df, config)
                 .inspect(|x| println!("OUT: {:?}", x))
                 .probe()
@@ -266,7 +267,41 @@ fn demo_multi_column_encoder2(quiet: bool) {
         input.advance_to(0);
         for person in 0 .. 10 {
             let person_int = person as i64;
-            input.insert((person,Row::with_integer_vec(vec![person_int%3, person_int%2])));
+            input.insert((person,Row::with_integer_vec(vec![person_int, person_int%2])));
+        }
+
+    }).expect("Computation terminated abnormally");
+    print_demo_separator()
+}
+
+fn demo_multi_column_encoder3(quiet: bool) {
+    println!("DEMO MULTI COLUMN ENCODER2\n");
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        worker.dataflow(|scope| {
+            let mut input_df = input.to_collection(scope);
+            if !quiet {
+                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
+            }
+            //let config  = vec![(0, OrdinalEncoder::new()), (1, OrdinalEncoder::new())];
+            let config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = vec![
+                (0, Box::new(StandardScaler::new())),
+                (1, Box::new(OneHotEncoder::new())),
+                (2, Box::new(OrdinalEncoder::new())),
+                (3, Box::new(OrdinalEncoder::new())),
+            ];
+
+            multi_column_encoder(&input_df, config)
+                .inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        input.advance_to(0);
+        for person in 0 .. 10 {
+            let person_int = person as i64;
+            input.insert((person,Row::with_integer_vec(
+                vec![person_int, (person_int + 1) % 3,  person_int%2 + 2,  person_int%3 + 3])));
         }
 
     }).expect("Computation terminated abnormally");
