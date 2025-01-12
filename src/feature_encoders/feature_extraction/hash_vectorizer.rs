@@ -31,7 +31,7 @@ where G::Timestamp: Lattice+Ord {
         data.map(move |(_, (i, row_value))| {
             let text = match &row_value {
                 Text(s) => s,
-                _ => panic!("called transform before fit"),
+                _ => panic!("can only apply to text features"),
             };
             let mut vec = vec![0f64; n_features];
             let tokens = text.split_whitespace().filter(|word| !word.is_empty());
