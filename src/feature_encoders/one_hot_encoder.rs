@@ -1,33 +1,32 @@
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::operators::{Join, Reduce, Threshold};
+use differential_dataflow::operators::{Count, Join, Reduce, Threshold};
 use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
 use crate::types::dense_vector::DenseVector;
 
 pub struct OneHotEncoder <G: Scope> {
-    distinct: Option<Collection<G, (usize, RowValue)>>,
+    distinct_enumerated: Option<Collection<G, (RowValue, (usize, usize))>>,
+    epoch : i64
 }
 
 impl<G: Scope> OneHotEncoder<G> {
     pub fn new() -> Self<>{
-        Self{distinct:None}
+        Self{distinct_enumerated:None, epoch: 0}
     }
 }
 
 impl<G: Scope> ColumnEncoder<G> for OneHotEncoder<G>
 where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
-        self.distinct = Some(data.map(|(_, (_, row_value))| row_value).distinct().map(|val| (1, val)));
-    }
-
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
-        let distinct = match &self.distinct {
-            None => panic!("called transform before fit"),
-            Some(m) => m
-        };
-        let enumerated = distinct.reduce(|_key, input, output| {
+        let distinct = data.map(|(_, (_, row_value))| row_value).distinct().map(|val| (1, val));
+        /*let distinct = match &self.distinct {
+            None => distinct.map(|(_, val)| {(1, val, self.epoch)}),
+            Some(m) => distinct.map(|(_, val)| (1, val.clone(), m.filter(|(_, val2, _)| val.eq(val2)).() > 0))
+        }; */
+        //TODO better ordering using inspect based on insertion time (for sparse vectors)
+        self.distinct_enumerated = Some(distinct.reduce(|_key, input, output| {
             let n = input.len();
             let mut i = 0;
             //let mut sorted = input.clone();
@@ -37,12 +36,17 @@ where G::Timestamp: Lattice+Ord {
                 output.push(((owned_v, i.clone(), n.clone()), 1));
                 i = i+1;
             }
-        }).map(|(_key, (v, i, n))| (v, (i, n)));
+        }).map(|(_key, (v, i, n))| (v, (i, n))));
+    }
 
-        //enumerated.inspect(|x| println!("DISTINCT: {:?}", x));
+    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+        let distinct_enumerated = match &self.distinct_enumerated {
+            None => panic!("called transform before fit"),
+            Some(m) => m
+        };
 
         let data_inv = data.map(|(key, (i, v)) | (v, (key, i)));
-        let joined = data_inv.join(&enumerated);
+        let joined = data_inv.join(&distinct_enumerated);
 
         joined.map(|(_value, ((_key, i), (vector_idx, n)))| {
             let mut vec = vec![0f64; n];
