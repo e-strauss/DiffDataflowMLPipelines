@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::ops::{AddAssign, Neg};
 use serde::{Deserialize, Serialize};
 
 // struct DenseNumVec {
@@ -43,8 +44,12 @@ impl PartialEq<Self> for DenseVector {
 }
 
 impl PartialOrd<Self> for DenseVector {
-    fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
-        todo!()
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (DenseVector::Scalar(a), DenseVector::Scalar(b)) => a.partial_cmp(b),
+            (DenseVector::Vector(a), DenseVector::Vector(b)) => a.partial_cmp(b),
+            _ => None,
+        }
     }
 }
 
@@ -105,6 +110,63 @@ impl DenseVector {
                 a.extend(b);
                 DenseVector::Vector(a)
             }
+        }
+    }
+
+    pub fn scale(&mut self, factor : f64) {
+        match self {
+            DenseVector::Scalar(s) => {
+                *s *= factor;
+            }
+            DenseVector::Vector(vec) => {
+                for x in vec.iter_mut() {
+                    *x *= factor;
+                }
+            }
+        }
+    }
+
+    pub fn binarize(&mut self) {
+        let epsilon = 1e-10;
+        match self {
+            DenseVector::Scalar(s) => {
+                *s = if (*s - 0.0).abs() < epsilon { 1f64 } else { 0f64 };
+            }
+            DenseVector::Vector(vec) => {
+                for x in vec.iter_mut() {
+                    *x = if (*x - 0.0).abs() < epsilon { 1f64 } else { 0f64 };
+                }
+            }
+        }
+    }
+}
+
+impl AddAssign for DenseVector {
+    fn add_assign(&mut self, rhs: DenseVector) {
+        match (self, rhs) {
+            (DenseVector::Scalar(lhs), DenseVector::Scalar(rhs)) => {
+                *lhs += rhs;
+            }
+            (DenseVector::Vector(lhs), DenseVector::Vector(rhs)) => {
+                if lhs.len() != rhs.len() {
+                    panic!("Vectors must have the same length to add");
+                }
+                for (l, r) in lhs.iter_mut().zip(rhs.iter()) {
+                    *l += r;
+                }
+            }
+            _ => panic!("cant add scalar and vector"),
+        }
+    }
+}
+
+impl Neg for DenseVector {
+    type Output = DenseVector;
+
+    fn neg(self) -> DenseVector {
+        match self {
+            DenseVector::Scalar(v) => DenseVector::Scalar(-v),
+            DenseVector::Vector(v) => DenseVector::Vector(v.into_iter().map(|x| -x).collect()),
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::ops::{Add, AddAssign};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,4 +90,18 @@ impl Hash for RowValue {
         }
     }
 
+}
+
+impl Add for RowValue {
+    type Output = RowValue;
+
+    fn add(self, rhs: RowValue) -> RowValue {
+        match (self, rhs) {
+            (RowValue::Integer(lhs), RowValue::Integer(rhs)) => RowValue::Integer(lhs + rhs),
+            (RowValue::Float(lhs), RowValue::Float(rhs)) => RowValue::Float(lhs + rhs),
+            (RowValue::Integer(lhs), RowValue::Float(rhs)) => RowValue::Float(lhs as f64 + rhs),
+            (RowValue::Float(lhs), RowValue::Integer(rhs)) => RowValue::Float(lhs + rhs as f64),
+            _ => panic!("Cannot add mismatched RowValue types"),
+        }
+    }
 }

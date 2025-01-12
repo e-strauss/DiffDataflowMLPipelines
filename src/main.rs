@@ -10,6 +10,7 @@ extern crate differential_dataflow;
 use std::thread;
 use differential_dataflow::input::InputSession;
 use differential_dataflow::operators::{Reduce};
+use rand::Rng;
 use timely::communication::allocator::Generic;
 use timely::worker::Worker;
 use feature_encoders::column_encoder::{*};
@@ -17,18 +18,22 @@ use feature_encoders::one_hot_encoder::OneHotEncoder;
 use feature_encoders::multi_column_encoder::multi_column_encoder;
 use crate::feature_encoders::ordinal_encoder::OrdinalEncoder;
 use crate::feature_encoders::standard_scaler::StandardScaler;
+use crate::feature_encoders::feature_extraction::hash_vectorizer::HashVectorizer;
+use crate::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
+use crate::types::row_value::RowValue;
 
 const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     print_demo_separator();
-    demo_standard_scale(false);
-    demo_recode(false);
+    //demo_standard_scale(false);
+    /*demo_recode(false);
     demo_sum(false);
     demo_row_struct(false);
     demo_multi_column_encoder(false);
-    demo_multi_column_encoder2(false);
-    demo_multi_column_encoder3(false);
+    demo_multi_column_encoder2(false); */
+    //demo_multi_column_encoder3(false);
+    text_encoder_demo(false)
 }
 
 fn print_demo_separator() {
@@ -302,6 +307,55 @@ fn demo_multi_column_encoder3(quiet: bool) {
             let person_int = person as i64;
             input.insert((person,Row::with_integer_vec(
                 vec![person_int, (person_int + 1) % 3,  person_int%2 + 2,  person_int%3 + 3])));
+        }
+
+    }).expect("Computation terminated abnormally");
+    print_demo_separator()
+}
+
+fn generate_random_string() -> String {
+    let tokens = ["EDML", "Benni", "Elias", "Berlin", "Bratwurst"];
+
+    // Create a random number generator
+    let mut rng = rand::thread_rng();
+
+    // Randomly choose a length between 5 and 10
+    let length = rng.gen_range(5..=10);
+
+    // Generate a vector of randomly selected tokens
+    let random_tokens: Vec<&str> = (0..length)
+        .map(|_| tokens[rng.gen_range(0..tokens.len())])
+        .collect();
+
+    // Join the tokens into a single string with a space separator
+    random_tokens.join(" ")
+}
+
+fn text_encoder_demo(quiet: bool) {
+    println!("DEMO TEXT ENCODER\n");
+    let n_features = 16;
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        worker.dataflow(|scope| {
+            let mut input_df = input.to_collection(scope);
+            if !quiet {
+                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
+            }
+            //let config  = vec![(0, OrdinalEncoder::new()), (1, OrdinalEncoder::new())];
+            let config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = vec![
+                (0, Box::new(TfidfTransformer::new(Box::new(HashVectorizer::new(n_features, false)))))
+            ];
+
+            multi_column_encoder(&input_df, config)
+                .inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        input.advance_to(0);
+        for person in 0 .. 10 {
+            let person_int = person as i64;
+            input.insert((person,Row::with_row_value(RowValue::Text(generate_random_string()))));
         }
 
     }).expect("Computation terminated abnormally");
