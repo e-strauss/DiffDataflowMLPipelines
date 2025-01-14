@@ -8,9 +8,9 @@ extern crate timely;
 extern crate differential_dataflow;
 
 use std::thread;
-use differential_dataflow::input::InputSession;
-use differential_dataflow::operators::{Reduce};
 use rand::Rng;
+use differential_dataflow::input::{Input, InputSession};
+use differential_dataflow::operators::{Reduce};
 use timely::communication::allocator::Generic;
 use timely::worker::Worker;
 use feature_encoders::column_encoder::{*};
@@ -26,13 +26,13 @@ const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     print_demo_separator();
-    //demo_standard_scale(false);
-    /*demo_recode(false);
+    demo_standard_scale(false);
+    demo_recode(false);
     demo_sum(false);
     demo_row_struct(false);
     demo_multi_column_encoder(false);
-    demo_multi_column_encoder2(false); */
-    //demo_multi_column_encoder3(false);
+    demo_multi_column_encoder2(false);
+    demo_multi_column_encoder3(false);
     text_encoder_demo(false)
 }
 
@@ -233,7 +233,7 @@ fn demo_multi_column_encoder(quiet: bool) {
             }
 
             let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
-            config.push((0, Box::new(StandardScaler::new())));
+            config.push((0, Box::new(StandardScaler::new_with_rounding(-1, 0))));
 
             multi_column_encoder(&input_df, config)
                 .inspect(|x| println!("OUT: {:?}", x))
@@ -241,9 +241,17 @@ fn demo_multi_column_encoder(quiet: bool) {
         });
 
         input.advance_to(0);
-        for person in 0 .. 10 {
-            input.insert((person,Row::with_values(person as i64, 2.0, person.to_string())));
+        for person in 0 .. 100 {
+            input.insert((person,Row::with_values((person % 10) as i64, 2.0, person.to_string())));
         }
+        input.advance_to(1);
+        input.flush();
+        make_steps(worker, 0, quiet);
+
+
+        input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
+
+
     }).expect("Computation terminated abnormally");
     print_demo_separator()
 }
