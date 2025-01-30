@@ -1,6 +1,8 @@
 mod types;
 mod feature_encoders;
 
+use std::fs::File;
+use std::io::BufWriter;
 use types::row::{Row};
 // use feature_encoders::column_encoder::static_encoder;
 
@@ -8,9 +10,11 @@ extern crate timely;
 extern crate differential_dataflow;
 
 use std::thread;
+use std::time::Instant;
 use rand::Rng;
 use differential_dataflow::input::{Input, InputSession};
 use differential_dataflow::operators::{Reduce};
+use timely::dataflow::operators::capture::{Capture, EventWriter};
 use timely::communication::allocator::Generic;
 use timely::worker::Worker;
 use feature_encoders::column_encoder::{*};
@@ -26,14 +30,15 @@ const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     print_demo_separator();
-    demo_standard_scale(false);
-    demo_recode(false);
-    demo_sum(false);
-    demo_row_struct(false);
-    demo_multi_column_encoder(false);
-    demo_multi_column_encoder2(false);
-    demo_multi_column_encoder3(false);
-    text_encoder_demo(false)
+    // demo_standard_scale(false);
+    // demo_recode(false);
+    // demo_sum(false);
+    // demo_row_struct(false);
+    // demo_multi_column_encoder(false);
+    // demo_multi_column_encoder2(false);
+    // demo_multi_column_encoder3(false);
+    // text_encoder_demo(false)
+    // micro_benchmark_standard_scaler(false);
 }
 
 fn print_demo_separator() {
@@ -367,5 +372,49 @@ fn text_encoder_demo(quiet: bool) {
         }
 
     }).expect("Computation terminated abnormally");
+    print_demo_separator()
+}
+
+fn micro_benchmark_standard_scaler(quiet: bool) {
+    println!("DEMO MULTI COLUMN ENCODER\n");
+    // Set a size for our organization from the input.
+    let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
+    let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
+    let timer = Instant::now();
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        let probe = worker.dataflow(|scope| {
+            let input_df = input.to_collection(scope);
+            let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
+            config.push((0, Box::new(StandardScaler::new_with_rounding(-2,0))));
+
+            multi_column_encoder(&input_df, config)
+                //.inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        input.advance_to(0);
+        let mut person = worker.index();
+        while person < size {
+            input.insert((person,Row::with_row_value(RowValue::Integer((person % 10) as i64))));
+            person += worker.peers();
+        }
+        input.advance_to(1);
+        input.flush();
+        println!("\n-- time 0 -> 1 --------------------");
+        worker.step_while(|| probe.less_than(input.time()));
+        println!("\nInit Computation took: {:?}", timer.elapsed());
+        for i in 1 .. (1+ appends){
+            input.insert((7,Row::with_row_value(RowValue::Integer((i % 10) as i64))));
+            input.advance_to(1 + i);
+            input.flush();
+            println!("\n-- time {} -> {} --------------------", i, i + 1);
+            worker.step_while(|| probe.less_than(input.time()));
+        }
+
+        // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
+    }).expect("Computation terminated abnormally");
+    println!("\nComputation took: {:?}", timer.elapsed());
     print_demo_separator()
 }
