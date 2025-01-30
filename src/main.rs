@@ -1,10 +1,8 @@
 mod types;
 mod feature_encoders;
 
-use std::fs::File;
-use std::io::BufWriter;
+
 use types::row::{Row};
-// use feature_encoders::column_encoder::static_encoder;
 
 extern crate timely;
 extern crate differential_dataflow;
@@ -12,9 +10,8 @@ extern crate differential_dataflow;
 use std::thread;
 use std::time::Instant;
 use rand::Rng;
-use differential_dataflow::input::{Input, InputSession};
+use differential_dataflow::input::{InputSession};
 use differential_dataflow::operators::{Reduce};
-use timely::dataflow::operators::capture::{Capture, EventWriter};
 use timely::communication::allocator::Generic;
 use timely::worker::Worker;
 use feature_encoders::column_encoder::{*};
@@ -38,7 +35,7 @@ fn main() {
     // demo_multi_column_encoder2(false);
     // demo_multi_column_encoder3(false);
     // text_encoder_demo(false)
-    // micro_benchmark_standard_scaler(false);
+    // micro_benchmark_standard_scaler();
 }
 
 fn print_demo_separator() {
@@ -330,14 +327,14 @@ fn generate_random_string() -> String {
     let tokens = ["EDML", "Benni", "Elias", "Berlin", "Bratwurst"];
 
     // Create a random number generator
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Randomly choose a length between 5 and 10
-    let length = rng.gen_range(5..=10);
+    let length = rng.random_range(5..=10);
 
     // Generate a vector of randomly selected tokens
     let random_tokens: Vec<&str> = (0..length)
-        .map(|_| tokens[rng.gen_range(0..tokens.len())])
+        .map(|_| tokens[rng.random_range(0..tokens.len())])
         .collect();
 
     // Join the tokens into a single string with a space separator
@@ -367,7 +364,6 @@ fn text_encoder_demo(quiet: bool) {
 
         input.advance_to(0);
         for person in 0 .. 10 {
-            let person_int = person as i64;
             input.insert((person,Row::with_row_value(RowValue::Text(generate_random_string()))));
         }
 
@@ -375,7 +371,7 @@ fn text_encoder_demo(quiet: bool) {
     print_demo_separator()
 }
 
-fn micro_benchmark_standard_scaler(quiet: bool) {
+fn micro_benchmark_standard_scaler() {
     println!("DEMO MULTI COLUMN ENCODER\n");
     // Set a size for our organization from the input.
     let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
