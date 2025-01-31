@@ -43,7 +43,7 @@ where G::Timestamp: Lattice+Ord {
         self.frequencies = Some(frequencies);
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, RowValue)> {
         let frequencies = match &self.frequencies {
             None => panic!("called transform before fit"),
             Some(f) => f
@@ -77,7 +77,7 @@ where G::Timestamp: Lattice+Ord {
                     })
                     .collect();
 
-                (id, DenseVector::Vector(tfidf))
+                (id, RowValue::Vec(tfidf))
             })
     }
 }
@@ -85,7 +85,7 @@ where G::Timestamp: Lattice+Ord {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 struct DocumentFrequencyAggregate {
-    frequencies: Option<DenseVector>,
+    frequencies: Option<Vec<f64>>,
     count: isize
 }
 

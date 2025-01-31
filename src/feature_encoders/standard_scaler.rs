@@ -98,13 +98,13 @@ where G::Timestamp: Lattice+Ord {
         self.mean = Some(mean_var);
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, RowValue)> {
         let mean = match &self.mean {
             None => panic!("called transform before fit"),
             Some(m) => m
         };
         data.join(&mean)
-            .map(|(_key, ((ix, val), (mean, var)))| (ix, DenseVector::Scalar((val.get_float() - mean.0)/var.0))  )
+            .map(|(_key, ((ix, val), (mean, var)))| (ix, RowValue::Float((val.get_float() - mean.0)/var.0))  )
     }
 }
 

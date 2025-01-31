@@ -64,34 +64,6 @@ impl Ord for DenseVector {
 }
 
 impl DenseVector {
-    fn new_with_capacity(capacity: usize) -> Self {
-        match capacity {
-            1 => DenseVector::Scalar(0.0),
-            _ => DenseVector::Vector(Vec::with_capacity(capacity)), }
-    }
-
-    pub fn get_first_value(&self) -> f64 {
-        match self {
-            DenseVector::Scalar(a) => *a,
-            DenseVector::Vector(a) => a[0],
-        }
-    }
-
-    pub fn increase_capacity(self, capacity: usize) -> Self {
-        match (self, capacity) {
-            (vec, 0) => vec,
-            (DenseVector::Scalar(a), cap) => {
-                let mut vec = Vec::with_capacity(1 + cap);
-                println!("new capacity: {}", vec.capacity());
-                vec.push(a);
-                DenseVector::Vector(vec)
-            },
-            (DenseVector::Vector(mut a), cap) => {
-                a.reserve(cap + a.capacity());
-                DenseVector::Vector(a)
-            }
-        }
-    }
 
     pub fn concat_dense_vector(self, other: DenseVector) -> Self {
         match (self, other) {

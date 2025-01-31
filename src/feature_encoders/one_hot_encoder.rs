@@ -39,7 +39,7 @@ where G::Timestamp: Lattice+Ord {
         }).map(|(_key, (v, i, n))| (v, (i, n))));
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, RowValue)> {
         let distinct_enumerated = match &self.distinct_enumerated {
             None => panic!("called transform before fit"),
             Some(m) => m
@@ -51,7 +51,7 @@ where G::Timestamp: Lattice+Ord {
         joined.map(|(_value, ((_key, i), (vector_idx, n)))| {
             let mut vec = vec![0f64; n];
             vec[vector_idx] = 1.0;
-            (i, DenseVector::Vector(vec))
+            (i, RowValue::Vec(vec))
         })
     }
 }
