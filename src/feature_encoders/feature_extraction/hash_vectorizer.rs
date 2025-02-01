@@ -5,6 +5,7 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Join, Reduce, Threshold};
 use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
+use crate::feature_encoders::feature_extraction::utils::default_tokenizer;
 use crate::types::row_value::RowValue;
 use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue::Text;
@@ -34,7 +35,7 @@ where G::Timestamp: Lattice+Ord {
                 _ => panic!("can only apply to text features"),
             };
             let mut vec = vec![0f64; n_features];
-            let tokens = text.split_whitespace().filter(|word| !word.is_empty());
+            let tokens = default_tokenizer(&text);
             for token in tokens {
                 let mut hasher = DefaultHasher::new();
                 token.hash(&mut hasher);
