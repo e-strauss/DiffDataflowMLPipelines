@@ -12,13 +12,13 @@ use crate::types::safe_vec::SafeVec;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 struct MinMaxAggregate {
-    sorted_values: SafeVec<(f64, isize)>,
+    sorted_values: SafeVec<(SafeF64, isize)>,
 
 }
 
 impl MinMaxAggregate {
     fn new(value: f64, count: isize) -> Self {
-        Self { sorted_values: SafeVec(vec![(value, count)]) }
+        Self { sorted_values: SafeVec(vec![(SafeF64(value), count)]) }
     }
 
     fn get(&self) -> (SafeF64, SafeF64) {
@@ -27,8 +27,8 @@ impl MinMaxAggregate {
             len => len
 
         };
-        let range: f64 = self.sorted_values.0[len - 1].0 - self.sorted_values.0[0].0;
-        (SafeF64(self.sorted_values.0[0].0), SafeF64(range))
+        let range: f64 = self.sorted_values.0[len - 1].0.0 - self.sorted_values.0[0].0.0;
+        (SafeF64(self.sorted_values.0[0].0.0), SafeF64(range))
     }
 }
 
@@ -38,8 +38,6 @@ impl IsZero for MinMaxAggregate {
 
 impl Semigroup for MinMaxAggregate {
     fn plus_equals(&mut self, other: &Self) {
-        println!("{:?} merged with {:?}", self.sorted_values.0, other.sorted_values.0);
-
         // insert each tuple into the sorted list
         for tuple in other.sorted_values.0.iter() {
             let pos = self.sorted_values.0.binary_search_by(|&(v, _)| v.partial_cmp(&tuple.0).unwrap())

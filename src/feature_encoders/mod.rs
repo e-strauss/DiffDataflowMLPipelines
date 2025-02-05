@@ -5,5 +5,5 @@ pub mod ordinal_encoder;
 pub mod multi_column_encoder;
 pub mod feature_extraction;
 mod polynomial_features_encoder;
-mod KBinsDiscretizer;
+mod kbins_discretizer;
 pub(crate) mod minmax_scaler;

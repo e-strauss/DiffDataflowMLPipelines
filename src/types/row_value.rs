@@ -11,12 +11,12 @@ pub enum RowValue {
 }
 
 impl RowValue {
-    pub fn get_integer(&self) -> i64 {
-        match *self {
-            RowValue::Integer(a) => {a}
-            _ => panic!("get_integer called on non-integer row value"),
-        }
-    }
+    // pub fn get_integer(&self) -> i64 {
+    //     match *self {
+    //         RowValue::Integer(a) => {a}
+    //         _ => panic!("get_integer called on non-integer row value"),
+    //     }
+    // }
 
     pub fn get_float(&self) -> f64 {
         match *self {
@@ -27,18 +27,6 @@ impl RowValue {
     }
 }
 
-
-
-// impl Sub for RowValue {
-//     type Output = Self;
-//
-//     fn sub(self, rhs: Self) -> Self::Output {
-//         match (self, rhs) {
-//             (RowValue::Integer(i), RowValue::Integer(j)) => {RowValue::Integer(i - j)}
-//             (_, _) => panic!("sub - called on non-integer row value"),
-//         }
-//     }
-// }
 
 impl Eq for RowValue {}
 

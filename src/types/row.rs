@@ -8,23 +8,16 @@ pub struct Row {
     pub size: usize,
 }
 impl Row {
-    // Create a new empty Row
-    pub fn new() -> Self {
-        Row {
-            values: Vec::new(),
-            size: 0,
-        }
-    }
-    pub fn append_integer(&mut self, value: i64) {
-        self.values.push(RowValue::Integer(value));
-        self.size += 1;
-    }
+    // pub fn append_integer(&mut self, value: i64) {
+    //     self.values.push(RowValue::Integer(value));
+    //     self.size += 1;
+    // }
 
-    pub fn append_row_value(mut self, val: RowValue) -> Self {
-        self.values.push(val);
-        self.size += 1;
-        self
-    }
+    // pub fn append_row_value(mut self, val: RowValue) -> Self {
+    //     self.values.push(val);
+    //     self.size += 1;
+    //     self
+    // }
 
     // Create a new Row with one integer, float, and string
     pub fn with_values(integer: i64, float: f64, text: String) -> Self {

@@ -29,15 +29,15 @@ const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     print_demo_separator();
-    // demo_standard_scale(false);
-    // demo_recode(false);
-    // demo_sum(false);
-    // demo_row_struct(false);
-    // demo_multi_column_encoder(false);
-    // demo_multi_column_encoder2(false);
-    // demo_multi_column_encoder3(false);
-    // text_encoder_demo(false)
-    // micro_benchmark_standard_scaler();
+    demo_standard_scale(false);
+    demo_recode(false);
+    demo_sum(false);
+    demo_row_struct(false);
+    demo_multi_column_encoder(false);
+    demo_multi_column_encoder2(false);
+    demo_multi_column_encoder3(false);
+    text_encoder_demo(false);
+    micro_benchmark_standard_scaler();
     micro_benchmark_minmax_scaler();
 }
 
@@ -412,7 +412,8 @@ fn micro_benchmark_minmax_scaler() {
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
         let probe = worker.dataflow(|scope| {
-            let input_df = input.to_collection(scope);
+            let input_df = input.to_collection(scope)
+                .inspect(|x| println!("IN: {:?}", x));
             let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
             config.push((0, Box::new(MinMaxScaler::new())));
 
@@ -430,7 +431,7 @@ fn micro_benchmark_minmax_scaler() {
     print_demo_separator()
 }
 
-fn init_collection(size: usize, timer: Instant, worker: &mut Worker<Generic>, mut input: &mut InputSession<usize, (usize, Row), isize>, probe: &Handle<usize>) {
+fn init_collection(size: usize, timer: Instant, worker: &mut Worker<Generic>, input: &mut InputSession<usize, (usize, Row), isize>, probe: &Handle<usize>) {
     input.advance_to(0);
     let mut person = worker.index();
     while person < size {
