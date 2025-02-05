@@ -13,12 +13,14 @@ use rand::Rng;
 use differential_dataflow::input::{InputSession};
 use differential_dataflow::operators::{Reduce};
 use timely::communication::allocator::Generic;
+use timely::dataflow::operators::probe::Handle;
 use timely::worker::Worker;
 use feature_encoders::column_encoder::{*};
 use feature_encoders::one_hot_encoder::OneHotEncoder;
 use feature_encoders::multi_column_encoder::multi_column_encoder;
 use crate::feature_encoders::ordinal_encoder::OrdinalEncoder;
 use crate::feature_encoders::standard_scaler::StandardScaler;
+use crate::feature_encoders::minmax_scaler::MinMaxScaler;
 use crate::feature_encoders::feature_extraction::hash_vectorizer::HashVectorizer;
 use crate::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
 use crate::types::row_value::RowValue;
@@ -36,6 +38,7 @@ fn main() {
     // demo_multi_column_encoder3(false);
     // text_encoder_demo(false)
     // micro_benchmark_standard_scaler();
+    micro_benchmark_minmax_scaler();
 }
 
 fn print_demo_separator() {
@@ -390,27 +393,63 @@ fn micro_benchmark_standard_scaler() {
                 .probe()
         });
 
-        input.advance_to(0);
-        let mut person = worker.index();
-        while person < size {
-            input.insert((person,Row::with_row_value(RowValue::Integer((person % 10) as i64))));
-            person += worker.peers();
-        }
-        input.advance_to(1);
-        input.flush();
-        println!("\n-- time 0 -> 1 --------------------");
-        worker.step_while(|| probe.less_than(input.time()));
-        println!("\nInit Computation took: {:?}", timer.elapsed());
-        for i in 1 .. (1+ appends){
-            input.insert((7,Row::with_row_value(RowValue::Integer((i % 10) as i64))));
-            input.advance_to(1 + i);
-            input.flush();
-            println!("\n-- time {} -> {} --------------------", i, i + 1);
-            worker.step_while(|| probe.less_than(input.time()));
-        }
+        init_collection(size, timer, worker, &mut input, &probe);
+        append_tuples(appends, worker, input, probe);
 
         // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
     }).expect("Computation terminated abnormally");
     println!("\nComputation took: {:?}", timer.elapsed());
     print_demo_separator()
+}
+
+fn micro_benchmark_minmax_scaler() {
+    println!("DEMO MULTI COLUMN ENCODER\n");
+    // Set a size for our organization from the input.
+    let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
+    let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(5);
+    let timer = Instant::now();
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        let probe = worker.dataflow(|scope| {
+            let input_df = input.to_collection(scope);
+            let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
+            config.push((0, Box::new(MinMaxScaler::new())));
+
+            multi_column_encoder(&input_df, config)
+                .inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        init_collection(size, timer, worker, &mut input, &probe);
+        append_tuples(appends, worker, input, probe);
+
+        // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
+    }).expect("Computation terminated abnormally");
+    println!("\nComputation took: {:?}", timer.elapsed());
+    print_demo_separator()
+}
+
+fn init_collection(size: usize, timer: Instant, worker: &mut Worker<Generic>, mut input: &mut InputSession<usize, (usize, Row), isize>, probe: &Handle<usize>) {
+    input.advance_to(0);
+    let mut person = worker.index();
+    while person < size {
+        input.insert((person, Row::with_row_value(RowValue::Integer((person % 10) as i64))));
+        person += worker.peers();
+    }
+    input.advance_to(1);
+    input.flush();
+    println!("\n-- time 0 -> 1 --------------------");
+    worker.step_while(|| probe.less_than(input.time()));
+    println!("\nInit Computation took: {:?}", timer.elapsed());
+}
+
+fn append_tuples(appends: usize, worker: &mut Worker<Generic>, mut input: InputSession<usize, (usize, Row), isize>, probe: Handle<usize>) {
+    for i in 1..(1 + appends) {
+        input.insert((7, Row::with_row_value(RowValue::Integer((i % 10) as i64))));
+        input.advance_to(1 + i);
+        input.flush();
+        println!("\n-- time {} -> {} --------------------", i, i + 1);
+        worker.step_while(|| probe.less_than(input.time()));
+    }
 }
