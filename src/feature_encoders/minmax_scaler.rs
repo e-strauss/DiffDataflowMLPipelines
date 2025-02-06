@@ -1,27 +1,28 @@
 use differential_dataflow::Collection;
 use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::operators::{Threshold, Count, Join};
+use differential_dataflow::operators::{Threshold, Count};
 use serde::{Deserialize, Serialize};
 use timely::dataflow::Scope;
 use crate::feature_encoders::column_encoder::ColumnEncoder;
+use crate::feature_encoders::standard_scaler::apply_scaling;
 use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue;
 use crate::types::safe_f64::SafeF64;
 use crate::types::safe_vec::SafeVec;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-struct MinMaxAggregate {
+pub struct MinMaxAggregate {
     sorted_values: SafeVec<(SafeF64, isize)>,
 
 }
 
 impl MinMaxAggregate {
-    fn new(value: f64, count: isize) -> Self {
+    pub(crate) fn new(value: f64, count: isize) -> Self {
         Self { sorted_values: SafeVec(vec![(SafeF64(value), count)]) }
     }
 
-    fn get(&self) -> (SafeF64, SafeF64) {
+    pub(crate) fn get(&self) -> (SafeF64, SafeF64) {
         let len = match self.sorted_values.0.len() {
             0 => panic!("empty aggregate"),
             len => len
@@ -39,23 +40,7 @@ impl IsZero for MinMaxAggregate {
 impl Semigroup for MinMaxAggregate {
     fn plus_equals(&mut self, other: &Self) {
         // insert each tuple into the sorted list
-        for tuple in other.sorted_values.0.iter() {
-            let pos = self.sorted_values.0.binary_search_by(|&(v, _)| v.partial_cmp(&tuple.0).unwrap())
-                .unwrap_or_else(|e| e);
-
-            if pos < self.sorted_values.0.len() && self.sorted_values.0[pos].0 == tuple.0 {
-                // Merge counts
-                self.sorted_values.0[pos].1 += tuple.1;
-
-                // Remove if count <= 0
-                if self.sorted_values.0[pos].1 <= 0 {
-                    self.sorted_values.0.remove(pos);
-                }
-            } else {
-                // Insert maintaining order
-                self.sorted_values.0.insert(pos, *tuple);
-            }
-        }
+        insert_sorted_list(&mut self.sorted_values, &other.sorted_values);
     }
 }
 
@@ -83,17 +68,30 @@ impl<G: Scope> MinMaxScaler<G> {
     }
 }
 
+fn insert_sorted_list(current: &mut SafeVec<(SafeF64, isize)>, other: &SafeVec<(SafeF64, isize)>) {
+    for tuple in other.0.iter() {
+        let pos =current.0.binary_search_by(|&(v, _)| v.partial_cmp(&tuple.0).unwrap())
+            .unwrap_or_else(|e| e);
+
+        if pos < current.0.len() && current.0[pos].0 == tuple.0 {
+            // Merge counts
+            current.0[pos].1 += tuple.1;
+
+            // Remove if count <= 0
+            if current.0[pos].1 <= 0 {
+                current.0.remove(pos);
+            }
+        } else {
+            // Insert maintaining order
+            current.0.insert(pos, *tuple);
+        }
+    }
+}
+
 impl<G: Scope> ColumnEncoder<G> for MinMaxScaler<G>
 where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
-        let meta = data
-            .threshold(|(_k, (_ix, value)), c| {
-                MinMaxAggregate::new((*value).get_float(), *c)
-            })
-            .map(|(column_id, _value)| column_id)
-            .count()
-            .map(|(column, agg)| (column, agg.get()))
-            .inspect(|x| println!("{:?}", x));
+        let meta = get_meta(data);
         self.meta = Some(meta);
     }
 
@@ -102,8 +100,17 @@ where G::Timestamp: Lattice+Ord {
             None => panic!("called transform before fit"),
             Some(m) => m
         };
-        data.join(&meta)
-            .map(|(_key, ((ix, val), (min, range)))|
-                (ix, DenseVector::Scalar((val.get_float() - min.0)/range.0)) )
+        apply_scaling(data, &meta)
     }
+}
+
+pub(crate) fn get_meta<G: Scope>(data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, (SafeF64, SafeF64))>
+where G::Timestamp: Lattice+Ord {
+    data.threshold(|(_k, (_ix, value)), c| {
+            MinMaxAggregate::new((*value).get_float(), *c)
+        })
+        .map(|(column_id, _value)| column_id)
+        .count()
+        .map(|(column, agg)| (column, agg.get()))
+        .inspect(|x| println!("{:?}", x))
 }

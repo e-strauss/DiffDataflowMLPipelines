@@ -3,7 +3,7 @@ use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Join, Threshold,Count};
 use serde::{Deserialize, Serialize};
-use timely::dataflow::Scope;
+use timely::dataflow::{Scope, ScopeParent};
 use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue;
@@ -103,10 +103,16 @@ where G::Timestamp: Lattice+Ord {
             None => panic!("called transform before fit"),
             Some(m) => m
         };
-        data.join(&mean)
-            .map(|(_key, ((ix, val), (mean, var)))| (ix, DenseVector::Scalar((val.get_float() - mean.0)/var.0))  )
+        apply_scaling(data, &mean)
     }
 }
+
+pub(crate) fn apply_scaling<G: Scope>(data: &Collection<G, (usize, (usize, RowValue))>, mean: &Collection<G, (usize, (SafeF64, SafeF64))>) -> Collection<G, (usize, DenseVector)>
+where G::Timestamp: Lattice+Ord {
+    data.join(&mean)
+        .map(|(_key, ((ix, val), (mean, var)))| (ix, DenseVector::Scalar((val.get_float() - mean.0) / var.0)))
+}
+
 
 fn round_to_decimal((m,v): (SafeF64, SafeF64), n1: i32, n2: i32) -> (SafeF64, SafeF64) {
     let factor1 = 10f64.powi(n1);

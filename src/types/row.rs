@@ -43,6 +43,13 @@ impl Row {
             size: 1,
         }
     }
+
+    pub fn with_row_values(vals: Vec<RowValue>) -> Self{
+        Row {
+            size: vals.len(),
+            values: vals,
+        }
+    }
 }
 
 impl Eq for Row {}

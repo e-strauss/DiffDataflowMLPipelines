@@ -23,6 +23,7 @@ use crate::feature_encoders::standard_scaler::StandardScaler;
 use crate::feature_encoders::minmax_scaler::MinMaxScaler;
 use crate::feature_encoders::feature_extraction::hash_vectorizer::HashVectorizer;
 use crate::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
+use crate::feature_encoders::kbins_discretizer::KBinsDiscretizer;
 use crate::types::row_value::RowValue;
 
 const SLEEPING_DURATION: u64 = 250;
@@ -38,7 +39,7 @@ fn main() {
     demo_multi_column_encoder3(false);
     text_encoder_demo(false);
     micro_benchmark_standard_scaler();
-    micro_benchmark_minmax_scaler();
+    micro_benchmark1();
 }
 
 fn print_demo_separator() {
@@ -393,8 +394,8 @@ fn micro_benchmark_standard_scaler() {
                 .probe()
         });
 
-        init_collection(size, timer, worker, &mut input, &probe);
-        append_tuples(appends, worker, input, probe);
+        init_collection(size, timer, worker, &mut input, &probe, 1);
+        append_tuples(size, appends, worker, input, probe, 1);
 
         // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
     }).expect("Computation terminated abnormally");
@@ -402,7 +403,7 @@ fn micro_benchmark_standard_scaler() {
     print_demo_separator()
 }
 
-fn micro_benchmark_minmax_scaler() {
+fn micro_benchmark1() {
     println!("DEMO MULTI COLUMN ENCODER\n");
     // Set a size for our organization from the input.
     let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
@@ -414,16 +415,20 @@ fn micro_benchmark_minmax_scaler() {
         let probe = worker.dataflow(|scope| {
             let input_df = input.to_collection(scope)
                 .inspect(|x| println!("IN: {:?}", x));
-            let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
-            config.push((0, Box::new(MinMaxScaler::new())));
+
+            let config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = vec![
+                (0, Box::new(StandardScaler::new())),
+                (1, Box::new(MinMaxScaler::new())),
+                (2, Box::new(KBinsDiscretizer::new(4))),
+            ];
 
             multi_column_encoder(&input_df, config)
                 .inspect(|x| println!("OUT: {:?}", x))
                 .probe()
         });
 
-        init_collection(size, timer, worker, &mut input, &probe);
-        append_tuples(appends, worker, input, probe);
+        init_collection(size, timer, worker, &mut input, &probe, 3);
+        append_tuples(size, appends, worker, input, probe, 3);
 
         // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
     }).expect("Computation terminated abnormally");
@@ -431,11 +436,12 @@ fn micro_benchmark_minmax_scaler() {
     print_demo_separator()
 }
 
-fn init_collection(size: usize, timer: Instant, worker: &mut Worker<Generic>, input: &mut InputSession<usize, (usize, Row), isize>, probe: &Handle<usize>) {
+fn init_collection(size: usize, timer: Instant, worker: &mut Worker<Generic>, input: &mut InputSession<usize, (usize, Row), isize>, probe: &Handle<usize>, cols: usize) {
     input.advance_to(0);
     let mut person = worker.index();
     while person < size {
-        input.insert((person, Row::with_row_value(RowValue::Integer((person % 10) as i64))));
+        let rv = RowValue::Integer((person % 10) as i64);
+        input.insert((person, Row::with_row_values(vec![rv; cols])));
         person += worker.peers();
     }
     input.advance_to(1);
@@ -445,9 +451,10 @@ fn init_collection(size: usize, timer: Instant, worker: &mut Worker<Generic>, in
     println!("\nInit Computation took: {:?}", timer.elapsed());
 }
 
-fn append_tuples(appends: usize, worker: &mut Worker<Generic>, mut input: InputSession<usize, (usize, Row), isize>, probe: Handle<usize>) {
-    for i in 1..(1 + appends) {
-        input.insert((7, Row::with_row_value(RowValue::Integer((i % 10) as i64))));
+fn append_tuples(size: usize, appends: usize, worker: &mut Worker<Generic>, mut input: InputSession<usize, (usize, Row), isize>, probe: Handle<usize>, cols: usize) {
+    for i in 0..appends {
+        let rv = RowValue::Integer((i % 10) as i64);
+        input.insert((size + i, Row::with_row_values(vec![rv; cols])));
         input.advance_to(1 + i);
         input.flush();
         println!("\n-- time {} -> {} --------------------", i, i + 1);
