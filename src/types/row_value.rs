@@ -2,21 +2,32 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::ops::{Add};
 use serde::{Deserialize, Serialize};
+use crate::types::dense_vector::DenseVector;
+use std::vec::Vec;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RowValue {
     Integer(i64),
     Text(String),
     Float(f64),
+    Vec(Vec<f64>),
 }
 
+
+
 impl RowValue {
-    // pub fn get_integer(&self) -> i64 {
-    //     match *self {
-    //         RowValue::Integer(a) => {a}
-    //         _ => panic!("get_integer called on non-integer row value"),
-    //     }
-    // }
+
+     pub fn initial_vec() -> Self {
+         RowValue::Vec(vec![])
+     }
+
+
+    pub fn get_integer(&self) -> i64 {
+        match *self {
+            RowValue::Integer(a) => {a}
+            _ => panic!("get_integer called on non-integer row value"),
+        }
+    }
 
     pub fn get_float(&self) -> f64 {
         match *self {
@@ -25,8 +36,48 @@ impl RowValue {
             _ => panic!("get_float called on non-numeric row value"),
         }
     }
+
+    pub fn get_text(&self) -> &String {
+        match *self {
+            RowValue::Text(ref s) => {s}
+            _ => panic!("get_text called on non-text row value"),
+        }
+    }
+
+    pub fn get_vec(&self) -> &Vec<f64> {
+        match *self {
+            RowValue::Vec(ref v) => {v}
+            _ => panic!("get_vec called on non-vec row value"),
+        }
+    }
+
+    pub fn vector_append(self, other: RowValue) {
+        match self {
+            RowValue::Vec(mut v) => {
+                match other {
+                    RowValue::Vec(v1) => {v.extend(v1)}
+                    RowValue::Integer(i) => {v.push(i as f64)}
+                    RowValue::Float(f) => {v.push(f)}
+                    _ => panic!("cannot concat this row value to vector"),
+                }
+            }
+            _ => panic!("vector_concat called on non-vector row value"),
+        }
+    }
 }
 
+
+
+// impl Sub for RowValue {
+//     type Output = Self;
+//
+//     fn sub(self, rhs: Self) -> Self::Output {
+//         match (self, rhs) {
+//             (RowValue::Integer(i), RowValue::Integer(j)) => {RowValue::Integer(i - j)}
+//             (_, _) => panic!("sub - called on non-integer row value"),
+//         }
+//     }
+// }
 
 impl Eq for RowValue {}
 
@@ -36,6 +87,7 @@ impl PartialEq<Self> for RowValue {
             (RowValue::Integer(a), RowValue::Integer(b)) => a == b,
             (RowValue::Float(a), RowValue::Float(b)) => a == b,
             (RowValue::Text(a), RowValue::Text(b)) => a == b,
+            (RowValue::Vec(a), RowValue::Vec(b)) => a == b,
             _ => false,
         }
     }
@@ -47,6 +99,7 @@ impl PartialOrd<Self> for RowValue {
             (RowValue::Integer(a), RowValue::Integer(b)) => a.partial_cmp(b),
             (RowValue::Float(a), RowValue::Float(b)) => a.partial_cmp(b),
             (RowValue::Text(a), RowValue::Text(b)) => a.partial_cmp(b),
+            (RowValue::Vec(a), RowValue::Vec(b)) => a.partial_cmp(b),
             _ => panic!("Cannot compare RowValue of different types!"),
         }
     }
@@ -58,6 +111,7 @@ impl Ord for RowValue {
             (RowValue::Integer(a), RowValue::Integer(b)) => a.cmp(b),
             (RowValue::Float(a), RowValue::Float(b)) => a.partial_cmp(b).expect("Comparison failed"),
             (RowValue::Text(a), RowValue::Text(b)) => a.cmp(b),
+            (RowValue::Vec(a), RowValue::Vec(b)) => a.partial_cmp(b).unwrap(),
             _ => panic!("Cannot compare RowValue of different types!"),
         }
     }
@@ -93,3 +147,5 @@ impl Add for RowValue {
         }
     }
 }
+
+

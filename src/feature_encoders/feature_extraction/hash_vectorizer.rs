@@ -26,7 +26,7 @@ where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, RowValue)> {
         let n_features = self.n_features.clone();
         let binary = self.binary.clone();
         data.map(move |(_, (i, row_value))| {
@@ -46,7 +46,7 @@ where G::Timestamp: Lattice+Ord {
                     vec[hash_value] += 1.0;
                 }
             }
-            (i, DenseVector::Vector(vec))
+            (i, RowValue::Vec(vec))
         })
     }
 }
