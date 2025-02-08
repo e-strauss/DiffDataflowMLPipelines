@@ -35,15 +35,7 @@ impl PolynomialFeaturesEncoder {
         DenseVector::Vector(output_vec)
     }
 
-    fn polynomials_1d(&self, value: f64, min_degree: usize, max_degree: usize) -> DenseVector {
-        let mut vec = vec![0f64; 1 + max_degree - min_degree];
-        let mut x = value.powi(min_degree as i32);
-        for idx in min_degree..=max_degree {
-            vec[idx - min_degree] = x;
-            x *= value;
-        }
-        DenseVector::Vector(vec)
-    }
+
 }
 
 impl<G: Scope> ColumnEncoder<G> for PolynomialFeaturesEncoder
@@ -51,15 +43,18 @@ where G::Timestamp: Lattice+Ord {
 
 
     fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
+        /*let min_degree = self.min_degree.clone();
+        let max_degree = self.max_degree.clone();
+        data.consolidate().any
         data
             .consolidate()
-            .inspect(|x| match x {
+            .inspect(move |x| match x {
                 _ => {}
                 _ => { //TODO set this to vector later
                     let vec = vec![0f64, 10 as f64]; //dummy for extracted vector
-                    self.combinations = Some(combinations_with_replacement(vec.len(), self.min_degree, self.max_degree))
+                    self.combinations = Some(combinations_with_replacement(vec.len(), min_degree, max_degree))
                 }
-            });
+            }); */
     }
 
     fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
@@ -71,8 +66,8 @@ where G::Timestamp: Lattice+Ord {
         let max_degree = self.max_degree.clone();
         data.map(move |(_, (i, row_value))| {
             (i, match &row_value {
-                Integer(i) => self.polynomials_1d(*i as f64, min_degree, max_degree),
-                Float(f) => self.polynomials_1d(*f, min_degree, max_degree),
+                Integer(i) => polynomials_1d(*i as f64, min_degree, max_degree),
+                Float(f) => polynomials_1d(*f, min_degree, max_degree),
                 //TODO allow processing on Vectors
                 _ => panic!("cant apply to this rowvalue type"),
             })
@@ -80,16 +75,26 @@ where G::Timestamp: Lattice+Ord {
     }
 }
 
+fn polynomials_1d(value: f64, min_degree: usize, max_degree: usize) -> DenseVector {
+    let mut vec = vec![0f64; 1 + max_degree - min_degree];
+    let mut x = value.powi(min_degree as i32);
+    for idx in min_degree..=max_degree {
+        vec[idx - min_degree] = x;
+        x *= value;
+    }
+    DenseVector::Vector(vec)
+}
+
 fn combinations_with_replacement(len: usize, min_degree: usize, max_degree: usize) -> Vec<Vec<usize>> {
     let mut combinations = Vec::new();
     for degree in min_degree..=max_degree {
         let mut current_combination = Vec::new();
-        recurse(0, 0, degree, len, &combinations, &current_combination);
+        recurse(0, 0, degree, len, &mut combinations, &mut current_combination);
     }
     combinations
 }
 
-fn recurse(i : usize, current_degree : usize, target_degree : usize, n_features : usize, mut combinations: &Vec<Vec<usize>>, mut current_combination : &Vec<usize>) {
+fn recurse(i : usize, current_degree : usize, target_degree : usize, n_features : usize, combinations: &mut Vec<Vec<usize>>, current_combination : &mut Vec<usize>) {
     if(current_degree == target_degree){
         combinations.push(current_combination.clone());
         return;

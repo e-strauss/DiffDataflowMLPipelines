@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{AddAssign, Neg};
 use differential_dataflow::Collection;
@@ -30,9 +31,16 @@ where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
         self.backend.fit(data);
         let transformed = self.backend.transform(data)
-            .map(|(_column_id, mut vector)| {
+            .map(|(_column_id, vector)| {
+                let mut vector = vector.clone();
                 vector.binarize();
-                vector
+                match &vector {
+                    DenseVector::Scalar(_) => panic!("this should not happen in theory (backend yields scalar then)"),
+                    DenseVector::Vector(v) => {
+                        let v : Vec<isize> = v.iter().map(|&x| x as isize).collect();
+                        return v;
+                    }
+                };
             });
         let frequencies = transformed
             .threshold(|vector, multiplicity| {
@@ -54,10 +62,7 @@ where G::Timestamp: Lattice+Ord {
             .map(|(_, ((id, dense), frequencies))| {
                 let freq_vector = match frequencies.get_frequencies() {
                     None => panic!("this should not happen in theory (would mean that the aggregate is empty)"),
-                    Some(f) => match &f {
-                        DenseVector::Scalar(_) => panic!("if this happens, you fcked up badly"),
-                        DenseVector::Vector(ref v) => v
-                    }
+                    Some(v) => v
                 };
                 let doc = match &dense {
                     DenseVector::Scalar(_) => panic!("this should not happen in theory (backend yields scalar then)"),
@@ -67,11 +72,11 @@ where G::Timestamp: Lattice+Ord {
                     .iter()
                     .zip(freq_vector.iter())
                     .map(|(&doc_count, &freq)| {
-                        if doc_count == 0.0 || freq == 0.0 {
+                        if doc_count == 0.0 || freq == 0 {
                             0.0
                         } else {
                             let tf = doc_count;
-                            let idf = (frequencies.count as f64 / freq).ln();
+                            let idf = (frequencies.count as f64 / freq as f64).ln();
                             tf * idf
                         }
                     })
@@ -85,17 +90,19 @@ where G::Timestamp: Lattice+Ord {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 struct DocumentFrequencyAggregate {
-    frequencies: Option<DenseVector>,
+    frequencies: Option<Vec<isize>>,
     count: isize
 }
 
 impl DocumentFrequencyAggregate {
-    fn new(mut document: DenseVector, multiplicity: isize) -> Self {
-        document.scale(multiplicity as f64);
+    fn new(mut document: Vec<isize>, multiplicity: isize) -> Self {
+        for value in &mut document {
+            *value *= multiplicity;
+        }
         Self { frequencies: Some(document), count: multiplicity, }
     }
 
-    fn get_frequencies(&self) -> &Option<DenseVector> {
+    fn get_frequencies(&self) -> &Option<Vec<isize>> {
         &self.frequencies
     }
 
@@ -114,7 +121,11 @@ impl Semigroup for DocumentFrequencyAggregate {
     fn plus_equals(&mut self, other: &Self) {
         match (&mut self.frequencies, &other.frequencies) {
             (Some(lhs), Some(rhs)) => {
-                lhs.add_assign(rhs.clone());
+                let max_len = max(lhs.len(), rhs.len());
+                lhs.resize(max_len, 0);
+                for i in 0..rhs.len(){
+                    lhs[i] += rhs[i];
+                }
             }
             (None, Some(rhs)) => {
                 self.frequencies = Some(rhs.clone());
@@ -133,9 +144,14 @@ impl Monoid for DocumentFrequencyAggregate {
 
 impl Abelian for DocumentFrequencyAggregate {
     fn negate(&mut self) {
-        self.frequencies = match &self.frequencies {
-            None => None,
-            Some(m) => Some(m.clone())
+
+        match &mut self.frequencies {
+            Some(m) => {
+                for value in m {
+                    *value *= -1;
+                }
+            }
+            _ => {}
         };
         self.count *= -1;
     }

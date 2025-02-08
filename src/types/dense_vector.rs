@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::ops::{AddAssign, Neg};
 use serde::{Deserialize, Serialize};
-
+use crate::types::row_value::RowValue;
 // struct DenseNumVec {
 //     values: Vec<f64>,
 //     size: usize,
@@ -64,6 +64,13 @@ impl Ord for DenseVector {
 }
 
 impl DenseVector {
+
+    pub fn get_vector(&self) -> Vec<f64> {
+        match self {
+            DenseVector::Vector(v) => {v.clone()}
+            _ => panic!("get_vector called on non-vector row value"),
+        }
+    }
     // fn new_with_capacity(capacity: usize) -> Self {
     //     match capacity {
     //         1 => DenseVector::Scalar(0.0),
