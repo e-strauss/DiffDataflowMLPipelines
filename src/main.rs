@@ -18,28 +18,33 @@ use timely::worker::Worker;
 use feature_encoders::column_encoder::{*};
 use feature_encoders::one_hot_encoder::OneHotEncoder;
 use feature_encoders::multi_column_encoder::multi_column_encoder;
+use crate::feature_encoders::feature_extraction::count_vectorizer::CountVectorizer;
 use crate::feature_encoders::ordinal_encoder::OrdinalEncoder;
 use crate::feature_encoders::standard_scaler::StandardScaler;
 use crate::feature_encoders::minmax_scaler::MinMaxScaler;
 use crate::feature_encoders::feature_extraction::hash_vectorizer::HashVectorizer;
 use crate::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
+use crate::feature_encoders::kbins_discretizer;
 use crate::feature_encoders::kbins_discretizer::KBinsDiscretizer;
+use crate::feature_encoders::pipeline::Pipeline;
+use crate::feature_encoders::polynomial_features_encoder::PolynomialFeaturesEncoder;
 use crate::types::row_value::RowValue;
 
 const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     print_demo_separator();
-    demo_standard_scale(false);
-    demo_recode(false);
-    demo_sum(false);
-    demo_row_struct(false);
-    demo_multi_column_encoder(false);
-    demo_multi_column_encoder2(false);
+    // demo_standard_scale(false);
+    // demo_recode(false);
+    // demo_sum(false);
+    // demo_row_struct(false);
+     //demo_multi_column_encoder(false);
+    // demo_multi_column_encoder2(false);
     demo_multi_column_encoder3(false);
-    text_encoder_demo(false);
-    micro_benchmark_standard_scaler();
-    micro_benchmark1();
+     // text_encoder_demo(false)
+    //micro_benchmark_standard_scaler();
+    //micro_benchmark1();
+
 }
 
 fn print_demo_separator() {
@@ -214,9 +219,9 @@ fn demo_row_struct(quiet: bool) {
             if !quiet {
                 input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
-            static_encoder(&input_df)
+            /*static_encoder(&input_df)
                 .inspect(|x| println!("OUT: {:?}", x))
-                .probe()
+                .probe()*/
         });
 
         input.advance_to(0);
@@ -239,7 +244,8 @@ fn demo_multi_column_encoder(quiet: bool) {
             }
 
             let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
-            config.push((0, Box::new(StandardScaler::new_with_rounding(-1, 0))));
+            //config.push((0, Box::new(StandardScaler::new_with_rounding(-1, 0))));
+            config.push((0, Box::new(PolynomialFeaturesEncoder::new(1,3))));
 
             multi_column_encoder(&input_df, config)
                 .inspect(|x| println!("OUT: {:?}", x))
@@ -304,11 +310,22 @@ fn demo_multi_column_encoder3(quiet: bool) {
                 input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
             //let config  = vec![(0, OrdinalEncoder::new()), (1, OrdinalEncoder::new())];
+
+
             let config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = vec![
-                (0, Box::new(StandardScaler::new())),
-                (1, Box::new(OneHotEncoder::new())),
-                (2, Box::new(OrdinalEncoder::new())),
-                (3, Box::new(OrdinalEncoder::new())),
+                (0, Box::new(Pipeline::new(vec!
+                [
+                    Box::new(KBinsDiscretizer::new(5)),
+                    Box::new(OrdinalEncoder::new())
+                ]
+                ))),
+                (1, Box::new(Pipeline::new(vec!
+                [
+                    Box::new(MinMaxScaler::new()),
+                    Box::new(KBinsDiscretizer::new(3)),
+                    Box::new(OneHotEncoder::new())
+                ]
+                )))
             ];
 
             multi_column_encoder(&input_df, config)
@@ -317,18 +334,17 @@ fn demo_multi_column_encoder3(quiet: bool) {
         });
 
         input.advance_to(0);
-        for person in 0 .. 10 {
+        for person in 0 .. 20 {
             let person_int = person as i64;
             input.insert((person,Row::with_integer_vec(
-                vec![person_int, (person_int + 1) % 3,  person_int%2 + 2,  person_int%3 + 3])));
+                vec![person_int, (person_int + 1),  person_int * 2 + 5,  person_int + 3])));
         }
 
     }).expect("Computation terminated abnormally");
     print_demo_separator()
 }
 
-fn generate_random_string() -> String {
-    let tokens = ["EDML", "Benni", "Elias", "Berlin", "Bratwurst"];
+fn generate_random_string(tokens : Vec<&str>) -> String {
 
     // Create a random number generator
     let mut rng = rand::rng();
@@ -356,11 +372,15 @@ fn text_encoder_demo(quiet: bool) {
             if !quiet {
                 input_df = input_df.inspect(|x| println!("IN: {:?}", x));
             }
-            //let config  = vec![(0, OrdinalEncoder::new()), (1, OrdinalEncoder::new())];
-            let config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = vec![
-                (0, Box::new(TfidfTransformer::new(Box::new(HashVectorizer::new(n_features, false)))))
-            ];
 
+            let config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = vec![
+                (0, Box::new(Pipeline::new(vec!
+                [
+                    Box::new(CountVectorizer::new(false)),
+                    Box::new(TfidfTransformer::new())
+                ]
+                )))
+            ];
             multi_column_encoder(&input_df, config)
                 .inspect(|x| println!("OUT: {:?}", x))
                 .probe()
@@ -368,8 +388,20 @@ fn text_encoder_demo(quiet: bool) {
 
         input.advance_to(0);
         for person in 0 .. 10 {
-            input.insert((person,Row::with_row_value(RowValue::Text(generate_random_string()))));
+            let tokens = vec!["EDML", "Benni", "Elias", "Berlin", "Bratwurst"];
+            input.insert((person,Row::with_row_value(RowValue::Text(generate_random_string(tokens)))));
         }
+        input.advance_to(1);
+        input.flush();
+        make_steps(worker, 0, quiet);
+        for person in 11 .. 20 {
+            let tokens = vec!["EDML1", "Benni1", "Elias1", "Berlin", "Bratwurst"];
+            input.insert((person,Row::with_row_value(RowValue::Text(generate_random_string(tokens)))));
+        }
+        input.advance_to(2);
+        input.flush();
+        make_steps(worker, 1, quiet);
+
 
     }).expect("Computation terminated abnormally");
     print_demo_separator()
@@ -378,9 +410,11 @@ fn text_encoder_demo(quiet: bool) {
 fn micro_benchmark_standard_scaler() {
     println!("DEMO MULTI COLUMN ENCODER\n");
     // Set a size for our organization from the input.
-    let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
-    let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
-    let timer = Instant::now();
+    let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1000000);
+    let size2 = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
+
+    //let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
+    let appends = 1;
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
@@ -394,12 +428,37 @@ fn micro_benchmark_standard_scaler() {
                 .probe()
         });
 
-        init_collection(size, timer, worker, &mut input, &probe, 1);
-        append_tuples(size, appends, worker, input, probe, 1);
+        input.advance_to(0);
+        let mut person = worker.index();
+        while person < size {
+            input.insert((person,Row::with_row_value(RowValue::Integer((person % 10) as i64))));
+            person += worker.peers();
+        }
+        input.advance_to(1);
+        input.flush();
+        let timer = Instant::now();
+        println!("\n-- time 0 -> 1 --------------------");
+        worker.step_while(|| probe.less_than(input.time()));
+        println!("\nInit Computation took: {:?}", timer.elapsed());
+        let mut id = size+10;
+        for i in 1 .. (1+ appends){
+            for j in 0..size2{
+                input.insert((id,Row::with_row_value(RowValue::Integer(1000000 as i64))));
+
+                id += 1;
+            }
+            input.advance_to(1 + i);
+            input.flush();
+            let timer = Instant::now();
+            println!("\n-- time {} -> {} --------------------", i, i + 1);
+            worker.step_while(|| probe.less_than(input.time()));
+            println!("\nUpdate Computation took: {:?}", timer.elapsed());
+        }
+
 
         // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
     }).expect("Computation terminated abnormally");
-    println!("\nComputation took: {:?}", timer.elapsed());
+    //println!("\nComputation took: {:?}", timer.elapsed());
     print_demo_separator()
 }
 

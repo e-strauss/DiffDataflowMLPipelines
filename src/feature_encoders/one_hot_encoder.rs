@@ -19,8 +19,8 @@ impl<G: Scope> OneHotEncoder<G> {
 
 impl<G: Scope> ColumnEncoder<G> for OneHotEncoder<G>
 where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
-        let distinct = data.map(|(_, (_, row_value))| row_value).distinct().map(|val| (1, val));
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
+        let distinct = data.map(|(_, row_value)| row_value).distinct().map(|val| (1, val));
         /*let distinct = match &self.distinct {
             None => distinct.map(|(_, val)| {(1, val, self.epoch)}),
             Some(m) => distinct.map(|(_, val)| (1, val.clone(), m.filter(|(_, val2, _)| val.eq(val2)).() > 0))
@@ -39,16 +39,16 @@ where G::Timestamp: Lattice+Ord {
         }).map(|(_key, (v, i, n))| (v, (i, n))));
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, RowValue)> {
+    fn transform(&self, data: &Collection<G,(usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
         let distinct_enumerated = match &self.distinct_enumerated {
             None => panic!("called transform before fit"),
             Some(m) => m
         };
 
-        let data_inv = data.map(|(key, (i, v)) | (v, (key, i)));
+        let data_inv = data.map(|(i, v) | (v, i));
         let joined = data_inv.join(&distinct_enumerated);
 
-        joined.map(|(_value, ((_key, i), (vector_idx, n)))| {
+        joined.map(|(_value, ((i), (vector_idx, n)))| {
             let mut vec = vec![0f64; n];
             vec[vector_idx] = 1.0;
             (i, RowValue::Vec(vec))

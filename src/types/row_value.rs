@@ -51,13 +51,14 @@ impl RowValue {
         }
     }
 
-    pub fn vector_append(self, other: RowValue) {
+    pub fn vector_append(&self, other: &RowValue) -> RowValue{
         match self {
-            RowValue::Vec(mut v) => {
+            RowValue::Vec(v) => {
+                let mut v2 = v.clone();
                 match other {
-                    RowValue::Vec(v1) => {v.extend(v1)}
-                    RowValue::Integer(i) => {v.push(i as f64)}
-                    RowValue::Float(f) => {v.push(f)}
+                    RowValue::Vec(v1) => {v2.extend(v1); RowValue::Vec(v2)}
+                    RowValue::Integer(i) => {v2.push(*i as f64); RowValue::Vec(v2)}
+                    RowValue::Float(f) => {v2.push(*f); RowValue::Vec(v2)}
                     _ => panic!("cannot concat this row value to vector"),
                 }
             }

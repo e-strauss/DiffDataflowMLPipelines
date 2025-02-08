@@ -90,17 +90,17 @@ fn insert_sorted_list(current: &mut SafeVec<(SafeF64, isize)>, other: &SafeVec<(
 
 impl<G: Scope> ColumnEncoder<G> for MinMaxScaler<G>
 where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
-        let meta = get_meta(data);
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
+        let meta = get_meta(&data.map(|x| (1, x)));
         self.meta = Some(meta);
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
         let meta = match &self.meta {
             None => panic!("called transform before fit"),
             Some(m) => m
         };
-        apply_scaling(data, &meta)
+        apply_scaling(&data.map(|x| (1, x)), &meta)
     }
 }
 

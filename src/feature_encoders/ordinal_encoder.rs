@@ -18,11 +18,11 @@ impl<G: Scope> OrdinalEncoder<G> {
 
 impl<G: Scope> ColumnEncoder<G> for OrdinalEncoder<G>
 where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
-        self.distinct = Some(data.map(|(_, (_, row_value))| row_value).distinct().map(|val| (1, val)));
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
+        self.distinct = Some(data.map(|(_, row_value)| row_value).distinct().map(|val| (1, val)));
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, RowValue)> {
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
         let distinct = match &self.distinct {
             None => panic!("called transform before fit"),
             Some(m) => m
@@ -41,10 +41,10 @@ where G::Timestamp: Lattice+Ord {
 
         //enumerated.inspect(|x| println!("DISTINCT: {:?}", x));
 
-        let data_inv = data.map(|(key, (i, v)) | (v, (key, i)));
+        let data_inv = data.map(|(i, v) | (v, i));
         let joined = data_inv.join(&enumerated);
 
-        joined.map(|(_value, ((_key, i), ord))| {
+        joined.map(|(_value, (i, ord))| {
             (i, RowValue::Integer(ord))
         })
     }

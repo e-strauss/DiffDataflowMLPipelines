@@ -15,12 +15,11 @@ use crate::types::dense_vector::DenseVector;
 
 pub struct TfidfTransformer<G: Scope> {
     frequencies : Option<Collection<G, ((), DocumentFrequencyAggregate)>>,
-    backend : Box<dyn ColumnEncoder<G>>
 }
 
 impl<G: Scope> TfidfTransformer<G> {
-    pub fn new(backend : Box<dyn ColumnEncoder<G>>) -> TfidfTransformer<G> {
-        Self{frequencies:None, backend}
+    pub fn new() -> TfidfTransformer<G> {
+        Self{frequencies:None}
     }
 }
 
@@ -28,18 +27,18 @@ impl<G: Scope> TfidfTransformer<G> {
 
 impl<G: Scope> ColumnEncoder<G> for TfidfTransformer<G>
 where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
-        self.backend.fit(data);
-        let transformed = self.backend.transform(data)
-            .map(|(_column_id, vector)| {
-                let mut vector = vector.clone();
-                vector.binarize();
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
+        let transformed = data
+            .map(|(_, vector)| {
                 match &vector {
-                    DenseVector::Scalar(_) => panic!("this should not happen in theory (backend yields scalar then)"),
-                    DenseVector::Vector(v) => {
-                        let v : Vec<isize> = v.iter().map(|&x| x as isize).collect();
+                    RowValue::Vec(v) => {
+                        let epsilon = 1e-10;
+                        let v: Vec<isize> = v.iter()
+                            .map(|&x| if (x - 0.0).abs() < epsilon { 1 } else { 0 })
+                            .collect();
                         return v;
                     }
+                    _ => panic!("this should not happen in theory (backend doesnt yield Vec)")
                 };
             });
         let frequencies = transformed
@@ -51,12 +50,12 @@ where G::Timestamp: Lattice+Ord {
         self.frequencies = Some(frequencies);
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
         let frequencies = match &self.frequencies {
             None => panic!("called transform before fit"),
             Some(f) => f
         };
-        self.backend.transform(data)
+        data
             .map(|x| ((), x))
             .join(&frequencies)
             .map(|(_, ((id, dense), frequencies))| {
@@ -65,8 +64,8 @@ where G::Timestamp: Lattice+Ord {
                     Some(v) => v
                 };
                 let doc = match &dense {
-                    DenseVector::Scalar(_) => panic!("this should not happen in theory (backend yields scalar then)"),
-                    DenseVector::Vector(v) => v
+                    RowValue::Vec(v) => v,
+                    _ => panic!("this should not happen in theory (backend doesnt yield Vec)"),
                 };
                 let tfidf = doc
                     .iter()
@@ -82,7 +81,7 @@ where G::Timestamp: Lattice+Ord {
                     })
                     .collect();
 
-                (id, DenseVector::Vector(tfidf))
+                (id, RowValue::Vec(tfidf))
             })
     }
 }

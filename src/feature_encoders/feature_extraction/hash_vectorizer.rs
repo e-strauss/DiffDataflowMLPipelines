@@ -23,13 +23,13 @@ impl HashVectorizer {
 
 impl<G: Scope> ColumnEncoder<G> for HashVectorizer
 where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, RowValue)> {
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
         let n_features = self.n_features.clone();
         let binary = self.binary.clone();
-        data.map(move |(_, (i, row_value))| {
+        data.map(move |(i, row_value)| {
             let text = match &row_value {
                 Text(s) => s,
                 _ => panic!("can only apply to text features"),

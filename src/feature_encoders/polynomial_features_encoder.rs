@@ -18,7 +18,7 @@ impl PolynomialFeaturesEncoder {
         Self{min_degree, max_degree, combinations : None}
     }
 
-    fn polynomials(&self, input_vec: Vec<f64>) -> DenseVector {
+    fn polynomials(&self, input_vec: Vec<f64>) -> RowValue {
         let combinations = match &self.combinations {
             Some(v) => v,
             None => panic!("called transform before fit")
@@ -32,7 +32,7 @@ impl PolynomialFeaturesEncoder {
             }
             output_vec[i] = x;
         }
-        DenseVector::Vector(output_vec)
+        RowValue::Vec(output_vec)
     }
 
 
@@ -42,7 +42,7 @@ impl<G: Scope> ColumnEncoder<G> for PolynomialFeaturesEncoder
 where G::Timestamp: Lattice+Ord {
 
 
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
         /*let min_degree = self.min_degree.clone();
         let max_degree = self.max_degree.clone();
         data.consolidate().any
@@ -57,14 +57,14 @@ where G::Timestamp: Lattice+Ord {
             }); */
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
 
 
 
 
         let min_degree = self.min_degree.clone();
         let max_degree = self.max_degree.clone();
-        data.map(move |(_, (i, row_value))| {
+        data.map(move |(i, row_value)| {
             (i, match &row_value {
                 Integer(i) => polynomials_1d(*i as f64, min_degree, max_degree),
                 Float(f) => polynomials_1d(*f, min_degree, max_degree),
@@ -75,14 +75,14 @@ where G::Timestamp: Lattice+Ord {
     }
 }
 
-fn polynomials_1d(value: f64, min_degree: usize, max_degree: usize) -> DenseVector {
+fn polynomials_1d(value: f64, min_degree: usize, max_degree: usize) -> RowValue {
     let mut vec = vec![0f64; 1 + max_degree - min_degree];
     let mut x = value.powi(min_degree as i32);
     for idx in min_degree..=max_degree {
         vec[idx - min_degree] = x;
         x *= value;
     }
-    DenseVector::Vector(vec)
+    RowValue::Vec(vec)
 }
 
 fn combinations_with_replacement(len: usize, min_degree: usize, max_degree: usize) -> Vec<Vec<usize>> {

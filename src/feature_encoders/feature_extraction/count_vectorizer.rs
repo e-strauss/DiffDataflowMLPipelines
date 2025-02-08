@@ -26,9 +26,9 @@ impl<G: Scope> CountVectorizer<G> {
 
 impl<G: Scope> ColumnEncoder<G> for CountVectorizer<G>
 where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
         let tokenized = data
-            .map(|(_, (_, val))| {
+            .map(|(_, val)| {
                 match val {
                     Text(text) => {default_tokenizer(&text)}
                     _ => !panic!("count vectorizer called on non-text column")
@@ -40,14 +40,14 @@ where G::Timestamp: Lattice+Ord {
             }).map(|vector| ()).count().map(|agg| ((), (agg.1.word_to_index, agg.1.next_index))));
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
         let corpus = match &self.corpus {
             None => panic!("called transform before fit"),
             Some(c) => c
         };
         let binary = self.binary.clone();
 
-        data.map(|(_, (id, val))| {
+        data.map(|(id, val)| {
             let tokens : Vec<String>= match val {
                 Text(text) => {default_tokenizer(&text)}
                 _ => !panic!("count vectorizer called on non-text column")
@@ -67,7 +67,7 @@ where G::Timestamp: Lattice+Ord {
                     //token not in corpus
                 }
             }
-            (id, DenseVector::Vector(vec))
+            (id, RowValue::Vec(vec))
         })
     }
 }

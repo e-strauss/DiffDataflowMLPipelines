@@ -78,8 +78,8 @@ impl<G: Scope> StandardScaler<G> {
 
 impl<G: Scope> ColumnEncoder<G> for StandardScaler<G>
 where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>) {
-        let mean_var_raw = data
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
+        let mean_var_raw = data.map(|x| (1, x))
             .threshold(|(_k, (_ix, value)), c| {
                 VarianceAggregate::new((*value).get_float(), *c)
             })
@@ -98,19 +98,19 @@ where G::Timestamp: Lattice+Ord {
         self.mean = Some(mean_var);
     }
 
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G, (usize, DenseVector)> {
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
         let mean = match &self.mean {
             None => panic!("called transform before fit"),
             Some(m) => m
         };
-        apply_scaling(data, &mean)
+        apply_scaling(&data.map(|x| (1, x)), &mean)
     }
 }
 
-pub(crate) fn apply_scaling<G: Scope>(data: &Collection<G, (usize, (usize, RowValue))>, mean: &Collection<G, (usize, (SafeF64, SafeF64))>) -> Collection<G, (usize, DenseVector)>
+pub(crate) fn apply_scaling<G: Scope>(data: &Collection<G, (usize, (usize, RowValue))>, mean: &Collection<G, (usize, (SafeF64, SafeF64))>) -> Collection<G, (usize, RowValue)>
 where G::Timestamp: Lattice+Ord {
     data.join(&mean)
-        .map(|(_key, ((ix, val), (mean, var)))| (ix, DenseVector::Scalar((val.get_float() - mean.0) / var.0)))
+        .map(|(_key, ((ix, val), (mean, var)))| (ix, RowValue::Float((val.get_float() - mean.0) / var.0)))
 }
 
 

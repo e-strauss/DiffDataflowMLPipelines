@@ -13,10 +13,10 @@ where
     G::Timestamp: Lattice+Ord,
 {
     /// Fits the encoder on the input data and stores metadata internally (in the struct)
-    fn fit(&mut self, data: &Collection<G, (usize, (usize, RowValue))>);
+    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>);
 
     /// Transforms the input data using the internally stored metadata
-    fn transform(&self, data: &Collection<G, (usize, (usize, RowValue))>) -> Collection<G,  (usize, RowValue)>;
+    fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G,  (usize, RowValue)>;
 }
 
 
@@ -73,12 +73,12 @@ where
 
 // static encoder is just for testing purposes
 // same as multi_column_encoder but with predefined, static encoding scheme
-pub fn static_encoder<G: Scope>(
+/*pub fn static_encoder<G: Scope>(
     data: &Collection<G, (usize, Row)>,
 ) -> Collection<G, RowValue>
 where G::Timestamp: Lattice+Ord{
     let tmp = data.map(| (ix, row)| (1, (ix, row.values[0].clone())));
     let mut scaler = StandardScaler::new();
     scaler.fit(&tmp);
-    scaler.transform(&tmp).map(|(_ix, val)| val)
-}
+    //scaler.transform(&tmp).map(|(_ix, val)| val)
+}*/

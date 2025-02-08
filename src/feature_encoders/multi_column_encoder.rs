@@ -22,18 +22,13 @@ where
     for (col_id, mut enc) in col_iterator {
         // slice out current column
         let col = data.map(move | (ix, row)|
-            (1, (ix, row.values[col_id].clone())));
+            (ix, row.values[col_id].clone()));
         enc.fit(&col);
-        out.join(&enc.transform(&col)).map(|(ix, (row, row_val))|
-            (ix, row.vector_append(row_val)));
-
-        out.join(&enc.transform(&col)).reduce(|ix, input, output|{
-
-        });
 
         out = out.join(&enc.transform(&col))
-            .map(|(ix, (row, row_val))|
-                (ix, row.vector_append(row_val)));
+            .map(|(ix, (row, row_val))| {
+                (ix, row.vector_append(&row_val))
+            });
     }
     out.map(|(_ix, val)| val)
 }
