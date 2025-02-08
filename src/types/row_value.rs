@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::ops::{Add};
 use serde::{Deserialize, Serialize};
-use crate::types::dense_vector::DenseVector;
 use std::vec::Vec;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

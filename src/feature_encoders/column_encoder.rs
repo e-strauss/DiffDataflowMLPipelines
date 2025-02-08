@@ -6,7 +6,6 @@ use timely::dataflow::{Scope};
 use crate::feature_encoders::standard_scaler::StandardScaler;
 use crate::types::row::Row;
 use crate::types::row_value::RowValue;
-use crate::types::dense_vector::DenseVector;
 
 pub trait ColumnEncoder<G: Scope>
 where

@@ -5,7 +5,6 @@ use differential_dataflow::operators::{Join, Threshold,Count};
 use serde::{Deserialize, Serialize};
 use timely::dataflow::{Scope, ScopeParent};
 use crate::feature_encoders::column_encoder::ColumnEncoder;
-use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue;
 use crate::types::safe_f64::SafeF64;
 

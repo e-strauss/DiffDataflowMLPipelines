@@ -7,7 +7,6 @@ use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::feature_encoders::feature_extraction::utils::default_tokenizer;
 use crate::types::row_value::RowValue;
-use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue::Text;
 
 pub struct HashVectorizer {

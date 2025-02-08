@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
-use crate::types::dense_vector::DenseVector;
 
 
 
@@ -156,15 +155,3 @@ impl Abelian for DocumentFrequencyAggregate {
     }
 }
 
-impl Hash for DenseVector { //workaround thats never actually executed, but necessary to define to call threshold
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_i8(1);
-    }
-
-    fn hash_slice<H: Hasher>(data: &[Self], state: &mut H)
-    where
-        Self: Sized
-    {
-        state.write_i8(1);
-    }
-}

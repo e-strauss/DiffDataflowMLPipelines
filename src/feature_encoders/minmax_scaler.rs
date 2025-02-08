@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use timely::dataflow::Scope;
 use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::feature_encoders::standard_scaler::apply_scaling;
-use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue;
 use crate::types::safe_f64::SafeF64;
 use crate::types::safe_vec::SafeVec;

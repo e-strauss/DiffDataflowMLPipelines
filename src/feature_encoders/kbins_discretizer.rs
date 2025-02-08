@@ -4,7 +4,6 @@ use differential_dataflow::operators::{Join};
 use timely::dataflow::Scope;
 use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::feature_encoders::minmax_scaler::{get_meta};
-use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue;
 use crate::types::safe_f64::SafeF64;
 

@@ -8,7 +8,6 @@ use timely::dataflow::{Scope};
 use timely::dataflow::operators::Map;
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
-use crate::types::dense_vector::DenseVector;
 use crate::types::row_value::RowValue::Text;
 use crate::feature_encoders::feature_extraction::utils::{default_tokenizer};
 

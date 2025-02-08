@@ -4,7 +4,6 @@ use differential_dataflow::operators::{Join, Reduce, Threshold};
 use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
-use crate::types::dense_vector::DenseVector;
 
 pub struct OrdinalEncoder <G: Scope> {
     distinct: Option<Collection<G, (usize, RowValue)>>,
