@@ -9,16 +9,19 @@ use serde::{Deserialize, Serialize};
 use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
-
-
+use crate::types::safe_f64::SafeF64;
 
 pub struct TfidfTransformer<G: Scope> {
     frequencies : Option<Collection<G, ((), DocumentFrequencyAggregate)>>,
+    round_to: Option<i32>,
 }
 
 impl<G: Scope> TfidfTransformer<G> {
     pub fn new() -> TfidfTransformer<G> {
-        Self{frequencies:None}
+        Self{frequencies:None, round_to:None}
+    }
+    pub fn new_with_rounding(n: i32) -> Self{
+        Self{frequencies:None, round_to: Some(n)}
     }
 }
 
@@ -27,6 +30,7 @@ impl<G: Scope> TfidfTransformer<G> {
 impl<G: Scope> ColumnEncoder<G> for TfidfTransformer<G>
 where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
+        let round_to = self.round_to.clone();
         let transformed = data
             .map(|(_, vector)| {
                 match &vector {
@@ -41,8 +45,8 @@ where G::Timestamp: Lattice+Ord {
                 };
             });
         let frequencies = transformed
-            .threshold(|vector, multiplicity| {
-                DocumentFrequencyAggregate::new(vector.clone(), *multiplicity)
+            .threshold(move |vector, multiplicity| {
+                DocumentFrequencyAggregate::new(vector.clone(), *multiplicity, round_to)
             })
             .map(|vector| ())
             .count();
@@ -89,24 +93,36 @@ where G::Timestamp: Lattice+Ord {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 struct DocumentFrequencyAggregate {
     frequencies: Option<Vec<isize>>,
-    count: isize
+    count: isize,
+    round_to: Option<i32>,
 }
 
 impl DocumentFrequencyAggregate {
-    fn new(mut document: Vec<isize>, multiplicity: isize) -> Self {
+    fn new(mut document: Vec<isize>, multiplicity: isize, round_to: Option<i32>) -> Self {
         for value in &mut document {
             *value *= multiplicity;
         }
-        Self { frequencies: Some(document), count: multiplicity, }
+        Self { frequencies: Some(document), count: multiplicity, round_to}
     }
 
-    fn get_frequencies(&self) -> &Option<Vec<isize>> {
-        &self.frequencies
+    fn get_frequencies(&self) -> Option<Vec<isize>> {
+        match self.frequencies {
+            None => None,
+            Some(ref v) => match self.round_to {
+                Some(n) => Some(round_to_decimal(v, n)),
+                None => Some(v.clone())
+            }
+        }
     }
 
     fn get_count(&self) -> isize {
         self.count.clone()
     }
+}
+
+fn round_to_decimal(vec : &Vec<isize>, n: i32) -> Vec<isize> {
+    let factor = 10f64.powi(n);
+    vec.iter().map(|&x| ((x as f64 /factor).round() * factor) as isize).collect::<Vec<isize>>()
 }
 
 impl IsZero for DocumentFrequencyAggregate {
@@ -130,13 +146,17 @@ impl Semigroup for DocumentFrequencyAggregate {
             }
             _ => {}
         }
+        self.round_to = match self.round_to {
+            None => other.round_to,
+            Some(_) => self.round_to,
+        };
         self.count += other.count;
     }
 }
 
 impl Monoid for DocumentFrequencyAggregate {
     fn zero() -> Self {
-        Self { frequencies: None, count: 0, }
+        Self { frequencies: None, count: 0, round_to: None}
     }
 }
 

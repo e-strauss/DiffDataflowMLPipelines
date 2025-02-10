@@ -1,7 +1,5 @@
 mod types;
 mod feature_encoders;
-
-
 use types::row::{Row};
 
 extern crate timely;
@@ -377,7 +375,7 @@ fn text_encoder_demo(quiet: bool) {
                 (0, Box::new(Pipeline::new(vec!
                 [
                     Box::new(CountVectorizer::new(false)),
-                    Box::new(TfidfTransformer::new())
+                    Box::new(TfidfTransformer::new_with_rounding(-2))
                 ]
                 )))
             ];
