@@ -27,6 +27,7 @@ use crate::feature_encoders::feature_extraction::hash_vectorizer::HashVectorizer
 use crate::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
 use crate::feature_encoders::kbins_discretizer;
 use crate::feature_encoders::kbins_discretizer::KBinsDiscretizer;
+use crate::feature_encoders::passthrough::Passthrough;
 use crate::feature_encoders::pipeline::Pipeline;
 use crate::feature_encoders::polynomial_features_encoder::PolynomialFeaturesEncoder;
 use crate::types::row_value::RowValue;
@@ -330,21 +331,56 @@ fn read_csv2(file_path: &str) -> Result<Vec<Row>, Box<dyn Error>> {
     let mut rows: Vec<Row> = Vec::new(); // Array to store rows
     for result in rdr.records() {
         let record = result?;
-        let parsed_values: Vec<f64> = record.iter()
-            .map(|s| s.trim().parse::<f64>().unwrap_or(-1.0)) // Trim spaces & convert to f64
+        let r_vals: Vec<RowValue> = record.iter()
+            .map(|s| RowValue::Float(s.trim().parse::<f64>().unwrap_or(-1.0)) ) // Trim spaces & convert to f64
             .collect();
-        let row_vals: Vec<RowValue> = parsed_values.iter().map(|v| RowValue::Float(*v)).collect();
-        let row = Row::with_row_values(row_vals);
-        rows.push(row);
+        rows.push(Row::with_row_values(r_vals));
     }
-
     Ok(rows)
 }
 
 fn diabetes_pipeline(quiet: bool) {
-    if let Err(err) = read_csv2("data/5050_split.csv") {
-        eprintln!("Error reading CSV: {}", err);
+    let rows = read_csv2("data/5050_split.csv");
+    match rows {
+        Err(err) => eprintln!("Error reading CSV: {}", err),
+        Ok(rows) => diabetes(rows),
     }
+}
+
+fn diabetes(rows: Vec<Row>) {
+    let cols = rows[0].size;
+    let timer = Instant::now();
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        let probe = worker.dataflow(|scope| {
+            let input_df = input.to_collection(scope)
+                .inspect(|x| println!("IN: {:?}", x));
+
+            let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = Vec::with_capacity(cols);
+            for col in 0..cols {
+                //config.push((col, Box::new(StandardScaler::new_with_rounding(-2,0))));
+                config.push((col, Box::new(Passthrough::new())));
+            }
+
+            multi_column_encoder(&input_df, config)
+                .inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        input.advance_to(0);
+        for (rix, r) in rows.iter().enumerate() {
+            input.insert((rix, r.clone()));
+        }
+        input.advance_to(1);
+        input.flush();
+        println!("\n-- time 0 -> 1 --------------------");
+        worker.step_while(|| probe.less_than(input.time()));
+        println!("\nInit Computation took: {:?}", timer.elapsed());
+        // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
+    }).expect("Computation terminated abnormally");
+    println!("\nComputation took: {:?}", timer.elapsed());
+    print_demo_separator()
 }
 
 fn init_collection(size: usize, timer: Instant, worker: &mut Worker<Generic>, input: &mut InputSession<usize, (usize, Row), isize>, probe: &Handle<usize>, cols: usize) {

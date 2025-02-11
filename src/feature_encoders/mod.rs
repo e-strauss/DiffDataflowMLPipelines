@@ -8,3 +8,4 @@ pub mod polynomial_features_encoder;
 pub mod kbins_discretizer;
 pub mod minmax_scaler;
 pub mod pipeline;
+pub mod passthrough;
