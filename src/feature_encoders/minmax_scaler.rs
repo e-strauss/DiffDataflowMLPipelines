@@ -1,7 +1,10 @@
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use differential_dataflow::Collection;
 use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Threshold, Count};
+use priority_queue::PriorityQueue;
 use serde::{Deserialize, Serialize};
 use timely::dataflow::Scope;
 use crate::feature_encoders::column_encoder::ColumnEncoder;
@@ -10,50 +13,116 @@ use crate::types::row_value::RowValue;
 use crate::types::safe_f64::SafeF64;
 use crate::types::safe_vec::SafeVec;
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MinMaxAggregate {
-    sorted_values: SafeVec<(SafeF64, isize)>,
-
+    pub counts : BTreeMap<SafeF64, isize>,
+    max_pq : PriorityQueue<SafeF64, SafeF64>,
+    min_pq : PriorityQueue<SafeF64, SafeF64>
 }
 
 impl MinMaxAggregate {
     pub(crate) fn new(value: f64, count: isize) -> Self {
-        Self { sorted_values: SafeVec(vec![(SafeF64(value), count)]) }
+        let value = SafeF64(value);
+        let mut new = Self::zero();
+        new.counts.insert(value.clone(), count);
+        if count > 0 {
+            new.max_pq.push_increase(value.clone(), value.clone());
+            new.min_pq.push_increase(value.clone(), SafeF64(-value.clone().0));
+        }
+        new
     }
 
     pub(crate) fn get(&self) -> (SafeF64, SafeF64) {
-        let len = match self.sorted_values.0.len() {
+        let len = match self.max_pq.len() {
             0 => panic!("empty aggregate"),
             len => len
 
         };
-        let range: f64 = self.sorted_values.0[len - 1].0.0 - self.sorted_values.0[0].0.0;
-        (SafeF64(self.sorted_values.0[0].0.0), SafeF64(range))
+        let min = *self.min_pq.peek().unwrap().0;
+        let max = *self.max_pq.peek().unwrap().0;
+
+        let range: f64 = max.0 - min.0;
+        (SafeF64(min.0), SafeF64(range))
     }
 }
 
 impl IsZero for MinMaxAggregate {
-    fn is_zero(&self) -> bool { self.sorted_values.0.len() == 0 }
+    fn is_zero(&self) -> bool { self.max_pq.len() == 0 }
 }
 
 impl Semigroup for MinMaxAggregate {
     fn plus_equals(&mut self, other: &Self) {
-        // insert each tuple into the sorted list
-        insert_sorted_list(&mut self.sorted_values, &other.sorted_values);
+
+        for (&key, &value) in &other.counts {
+            // Merge counts
+            let mut new_count = *(self.counts.get(&key)).unwrap_or(&0);
+            new_count += value;
+            self.counts.insert(key.clone(), new_count);
+
+            // Ensure only positive counts remain in PQs
+            if new_count > 0 {
+                self.max_pq.push_increase(key.clone(), key.clone());
+                self.min_pq.push_increase(key.clone(), SafeF64(-key.clone().0));
+            } else {
+                self.max_pq.remove(&key);
+                self.min_pq.remove(&key);
+            }
+        }
     }
 }
 
 impl Monoid for MinMaxAggregate {
     fn zero() -> Self {
-        Self { sorted_values: SafeVec(vec![]) }
+        Self { counts:BTreeMap::new(), max_pq:PriorityQueue::new(), min_pq:PriorityQueue::new() }
     }
 }
 
 impl Abelian for MinMaxAggregate {
     fn negate(&mut self) {
-        for (_, count) in self.sorted_values.0.iter_mut() {
+        for (_, count) in self.counts.iter_mut() {
             *count = -*count;
         }
+    }
+}
+
+impl PartialOrd for MinMaxAggregate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.counts.partial_cmp(&other.counts)
+    }
+}
+
+impl Ord for MinMaxAggregate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.counts.cmp(&other.counts)
+    }
+}
+
+impl Serialize for MinMaxAggregate {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.counts.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for MinMaxAggregate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let counts: BTreeMap<SafeF64, isize> = BTreeMap::deserialize(deserializer)?;
+
+        let mut new = Self::zero();
+        new.counts = counts.clone();
+
+        for (key, &count) in &counts {
+            if count > 0 {
+                new.max_pq.push_increase(key.clone(), key.clone());
+                new.min_pq.push_increase(key.clone(), SafeF64(-key.clone().0));
+            }
+        }
+        Ok(new)
     }
 }
 

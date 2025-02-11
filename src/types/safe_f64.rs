@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -21,5 +22,11 @@ impl PartialOrd for SafeF64 {
 impl Ord for SafeF64 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap_or(Ordering::Greater)  // Treat NaN as the largest value
+    }
+}
+
+impl Hash for SafeF64 {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
     }
 }
