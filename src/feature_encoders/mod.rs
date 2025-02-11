@@ -9,3 +9,4 @@ pub mod kbins_discretizer;
 pub mod minmax_scaler;
 pub mod pipeline;
 pub mod passthrough;
+pub mod function_encoder;
