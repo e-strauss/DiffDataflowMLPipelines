@@ -327,10 +327,21 @@ fn micro_benchmark1() {
 }
 
 fn diabetes_pipeline(quiet: bool) {
+    let mut r1 = std::env::args().nth(1).and_then(|s| s.parse::<i32>().ok()).unwrap_or(2);
+    let minus1 = std::env::args().nth(2).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
+    let mut r2 = std::env::args().nth(3).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
+    let minus2 = std::env::args().nth(4).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
+    let init_size = std::env::args().nth(5).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.99);
+    if minus1 == 1 {
+        r1 = -r1
+    }
+    if minus2 == 1 {
+        r2 = -r2
+    }
     let rows = read_csv2("data/5050_split.csv");
     match rows {
         Err(err) => eprintln!("Error reading CSV: {}", err),
-        Ok(rows) => diabetes(rows),
+        Ok(rows) => diabetes(rows, r1, r2, init_size),
     }
 }
 
