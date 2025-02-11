@@ -1,5 +1,7 @@
 mod types;
 mod feature_encoders;
+
+use std::error::Error;
 use types::row::{Row};
 
 extern crate timely;
@@ -7,8 +9,10 @@ extern crate differential_dataflow;
 
 use std::thread;
 use std::time::Instant;
+use csv::Reader;
 use rand::Rng;
 use differential_dataflow::input::{InputSession};
+use serde::Deserialize;
 use timely::communication::allocator::Generic;
 use timely::dataflow::operators::probe::Handle;
 use timely::worker::Worker;
@@ -31,12 +35,13 @@ const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     print_demo_separator();
-    demo_multi_column_encoder(false);
-    demo_multi_column_encoder2(false);
-    demo_multi_column_encoder3(false);
-    text_encoder_demo(false);
-    micro_benchmark_standard_scaler();
-    micro_benchmark1();
+    // demo_multi_column_encoder(false);
+    // demo_multi_column_encoder2(false);
+    // demo_multi_column_encoder3(false);
+    // text_encoder_demo(false);
+    // micro_benchmark_standard_scaler();
+    // micro_benchmark1();
+    diabetes_pipeline(false);
 
 }
 
@@ -314,6 +319,32 @@ fn micro_benchmark1() {
     }).expect("Computation terminated abnormally");
     println!("\nComputation took: {:?}", timer.elapsed());
     print_demo_separator()
+}
+
+// CSV Reader for csv with floats returns Vec<Row>
+fn read_csv2(file_path: &str) -> Result<Vec<Row>, Box<dyn Error>> {
+    let mut rdr = Reader::from_path(file_path)?;
+    let headers = rdr.headers()?;
+    println!("Headers: {:?}", headers);
+
+    let mut rows: Vec<Row> = Vec::new(); // Array to store rows
+    for result in rdr.records() {
+        let record = result?;
+        let parsed_values: Vec<f64> = record.iter()
+            .map(|s| s.trim().parse::<f64>().unwrap_or(-1.0)) // Trim spaces & convert to f64
+            .collect();
+        let row_vals: Vec<RowValue> = parsed_values.iter().map(|v| RowValue::Float(*v)).collect();
+        let row = Row::with_row_values(row_vals);
+        rows.push(row);
+    }
+
+    Ok(rows)
+}
+
+fn diabetes_pipeline(quiet: bool) {
+    if let Err(err) = read_csv2("data/5050_split.csv") {
+        eprintln!("Error reading CSV: {}", err);
+    }
 }
 
 fn init_collection(size: usize, timer: Instant, worker: &mut Worker<Generic>, input: &mut InputSession<usize, (usize, Row), isize>, probe: &Handle<usize>, cols: usize) {
