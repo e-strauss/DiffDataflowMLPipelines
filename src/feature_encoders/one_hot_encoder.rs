@@ -24,7 +24,7 @@ where G::Timestamp: Lattice+Ord {
         self.value_positions = Some(distinct
             .threshold(|value, multiplicity| {
                 PositionAssignmentAggregate::new_with_val(value, *multiplicity)
-            }).map(|_vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.next_index))));
+            }).map(|_vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.len))));
     }
 
     fn transform(&self, data: &Collection<G,(usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
@@ -32,19 +32,28 @@ where G::Timestamp: Lattice+Ord {
             None => panic!("called transform before fit"),
             Some(m) => m
         };
+        let value_pos_pairs = value_positions.flat_map(|(_, (btree, len))| {
+            btree.into_iter().map(move |(key, value)| (key, (value, len)))
+        });
 
-        let data = data.map(|(i, v) | ((), (i, v)));
-        let joined = data.join(&value_positions);
+        let len_collection = value_positions.map(|(_, (_ , len))| ((), len));
+        let data = data.map(|(i, v) | (v, i));
 
-        joined.map(|(_, ((row_id, v), (val_to_index, n)))| {
-            let mut vec = vec![0f64; n];
-            let i = val_to_index.get(&v);
-            if let Some(i) = i {
-                vec[*i] = 1.0;
-            } else{
-                //value not in map
-            }
+        let inner_join = data.join(&value_pos_pairs).map(|(value, (row_id, (vector_index, len)))| {
+            let mut vec = vec![0f64; len];
+            vec[vector_index] = 1.0;
             (row_id, RowValue::Vec(vec))
-        })
+        });
+
+        let unmatched = data
+            .antijoin(&value_pos_pairs.map(|(value, _)| value))
+            .map(|(v, i)| ((), (v, i)))
+            .join(&len_collection)
+            .map(|(_, ((value, row_id), len))| {
+                let vec = vec![0f64; len];
+                (row_id, RowValue::Vec(vec))
+        });
+
+        inner_join.concat(&unmatched)
     }
 }

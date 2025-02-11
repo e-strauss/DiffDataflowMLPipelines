@@ -24,7 +24,7 @@ where G::Timestamp: Lattice+Ord {
         self.value_map = Some(distinct
             .threshold(|value, multiplicity| {
                 PositionAssignmentAggregate::new_with_val(value, *multiplicity)
-            }).map(|_vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.next_index))));
+            }).map(|_vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.len))));
     }
 
     fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {

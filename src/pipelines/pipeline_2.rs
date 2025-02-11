@@ -8,6 +8,7 @@ use crate::feature_encoders::one_hot_encoder::OneHotEncoder;
 use crate::feature_encoders::passthrough::Passthrough;
 use crate::pipelines::adult_dataset_reader::read_adult_csv;
 use crate::print_demo_separator;
+use crate::types::row::Row;
 use crate::types::row_value::RowValue;
 
 fn difference(a: &[usize], b: &[usize]) -> Vec<usize> {
@@ -15,12 +16,13 @@ fn difference(a: &[usize], b: &[usize]) -> Vec<usize> {
     a.iter().filter(|&&x| !set_b.contains(&x)).copied().collect()
 }
 
-pub fn run() {
+pub fn run_pipeline2(dataset: Vec<Row>, r1: i32, r2: i32, size: f32) {
     println!("PIPELINE 2\n");
-    let dataset = read_adult_csv("data/adult_data.csv").unwrap();
+    //let dataset = read_adult_csv("data/adult_data.csv").unwrap();
     let timer = Instant::now();
     let protected_attributes = [8, 9].to_vec();
     let proxy_attributes = [12].to_vec(); //hardcoded instead of computed
+    let split = (dataset.len()as f32*size) as usize;
 
     let mut excluded_attributes: Vec<usize> = protected_attributes
         .iter()
@@ -52,18 +54,31 @@ pub fn run() {
             multi_column_encoder(&input_df, config)
                 .probe()
         });
-
         input.advance_to(0);
-        for (rix, r) in dataset.iter().enumerate() {
-            input.insert((rix, r.clone()));
+        for rix in 0..split {
+            input.insert((rix, dataset[rix].clone()));
         }
-
         input.advance_to(1);
         input.flush();
-        println!("\n-- time 0 -> 1 --------------------");
+        //println!("\n-- time 0 -> 1 --------------------");
+        let timer1 = Instant::now();
         worker.step_while(|| probe.less_than(input.time()));
-        println!("\nInit Computation took: {:?}", timer.elapsed());
-
+        println!("\nInit Computation took: {:?}", timer1.elapsed().as_micros());
+        println!("Number of Updates: {}", dataset.len() - split);
+        let mut time = 2;
+        for rix in split..dataset.len() {
+            input.insert((rix, dataset[rix].clone()));
+            input.advance_to(time);
+            input.flush();
+            //println!("\n-- time {} -> {} --------------------", time-1, time);
+            time += 1;
+            let timer_tmp = Instant::now();
+            worker.step_while(|| probe.less_than(input.time()));
+            //println!("{:?}", timer_tmp.elapsed().as_micros());
+        }
+        println!("\nComputation took: {:?}", timer1.elapsed().as_micros());
+        // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
     }).expect("Computation terminated abnormally");
+
     print_demo_separator()
 }

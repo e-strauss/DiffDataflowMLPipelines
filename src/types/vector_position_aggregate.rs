@@ -9,7 +9,8 @@ where T: Ord + Clone {
     val_to_count: BTreeMap<T, (isize)>,
 
     free_indices: Vec<usize>,
-    pub next_index: usize,
+    next_index: usize,
+    pub len : usize,
     neg : bool,
     row_count : isize
 }
@@ -76,7 +77,23 @@ where T: Ord + Clone {
                 }
             }
         }
+        if(self.value_count() > self.len){
+            while(self.value_count() > self.len){
+                self.len = (self.len as f64 * 1.5).round() as usize;
+            }
+        } else if (self.value_count() < (self.len as f64 * 0.66).floor() as usize){
+            self.compress();
+            while(self.value_count() < (self.len as f64 * 0.66).floor()  as usize){
+                self.len = (self.len as f64 * 0.66).ceil() as usize;
+            }
+        }
+
     }
+
+    fn value_count(&self) -> usize {
+        self.val_to_count.len() - self.free_indices.len()
+    }
+
 
 
 }
@@ -96,9 +113,7 @@ where T: Ord + Clone {
             other_count =  if !(self.neg ^ other.neg) {other_count} else {-other_count};
             self.plus_equals_value_count(&value, other_count)
         }
-        if self.free_indices.len() as f64 > 0.5 * self.val_to_index.len() as f64 {
-            self.compress();
-        }
+        //println!("len 1: {:x} , len2: {:x}", self.value_count(), other.value_count());
         self.row_count += other.row_count;
     }
 }
@@ -106,7 +121,7 @@ where T: Ord + Clone {
 impl<T> Monoid for PositionAssignmentAggregate<T>
 where T: Ord + Clone {
     fn zero() -> Self {
-        Self { val_to_index: BTreeMap::new(), val_to_count: BTreeMap::new(), free_indices: Vec::new(), next_index: 0, neg: false, row_count: 0}
+        Self { val_to_index: BTreeMap::new(), val_to_count: BTreeMap::new(), free_indices: Vec::new(), next_index: 0, neg: false, row_count: 0, len:1}
     }
 }
 

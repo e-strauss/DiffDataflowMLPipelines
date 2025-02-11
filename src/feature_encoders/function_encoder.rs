@@ -21,7 +21,7 @@ impl<G: Scope> FunctionEncoder<G> {
 
 impl<G: Scope> ColumnEncoder<G> for FunctionEncoder<G>
 where G::Timestamp: Lattice+Ord {
-    fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
+    fn fit(&mut self, _data: &Collection<G, (usize, RowValue)>) {
 
     }
 
