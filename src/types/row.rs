@@ -50,6 +50,18 @@ impl Row {
             values: vals,
         }
     }
+
+
+    pub fn find_indices<F>(&self, predicate: F) -> Vec<usize>
+    where
+        F: Fn(&RowValue) -> bool,
+    {
+        self.values
+            .iter()
+            .enumerate()
+            .filter_map(|(i, value)| if predicate(value) { Some(i) } else { None })
+            .collect()
+    }
 }
 
 impl Eq for Row {}
