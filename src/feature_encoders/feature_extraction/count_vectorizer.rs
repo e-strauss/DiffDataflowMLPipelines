@@ -1,11 +1,8 @@
 use std::collections::BTreeMap;
 use differential_dataflow::Collection;
-use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Count, Join, Threshold};
-use serde::{Deserialize, Serialize};
 use timely::dataflow::{Scope};
-use timely::dataflow::operators::Map;
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
 use crate::types::row_value::RowValue::Text;
@@ -29,14 +26,14 @@ where G::Timestamp: Lattice+Ord {
         let tokenized = data
             .map(|(_, val)| {
                 match val {
-                    Text(text) => {default_tokenizer(&text)}
+                    Text(text) => {default_tokenizer(&text)},
                     _ => !panic!("count vectorizer called on non-text column")
                 }
             });
         self.corpus = Some(tokenized
             .threshold(|tokens, multiplicity| {
                 PositionAssignmentAggregate::new_with_vec(tokens, *multiplicity)
-            }).map(|vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.next_index))));
+            }).map(|_vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.next_index))));
     }
 
     fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {

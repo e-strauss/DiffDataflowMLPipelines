@@ -1,7 +1,6 @@
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::trace::implementations::BatchContainer;
-use timely::dataflow::{Scope, ScopeParent};
+use timely::dataflow::{Scope};
 use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::types::row_value::RowValue;
 use crate::types::row_value::RowValue::{Float, Integer};

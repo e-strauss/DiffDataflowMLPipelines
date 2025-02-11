@@ -3,7 +3,7 @@ use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Join, Threshold,Count};
 use serde::{Deserialize, Serialize};
-use timely::dataflow::{Scope, ScopeParent};
+use timely::dataflow::{Scope};
 use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::types::row_value::RowValue;
 use crate::types::safe_f64::SafeF64;

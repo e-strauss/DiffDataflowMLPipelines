@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::operators::{Count, Join, Reduce, Threshold};
+use differential_dataflow::operators::{Count, Join, Threshold};
 use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
@@ -24,7 +24,7 @@ where G::Timestamp: Lattice+Ord {
         self.value_map = Some(distinct
             .threshold(|value, multiplicity| {
                 PositionAssignmentAggregate::new_with_val(value, *multiplicity)
-            }).map(|vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.next_index))));
+            }).map(|_vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.next_index))));
     }
 
     fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
@@ -36,7 +36,7 @@ where G::Timestamp: Lattice+Ord {
         let data = data.map(|(i, v) | ((), (i, v)));
         let joined = data.join(&value_map);
 
-        joined.map(|(_, ((row_id, v), (val_to_index, n)))| {
+        joined.map(|(_, ((row_id, v), (val_to_index, _n)))| {
             let i = val_to_index.get(&v);
             if let Some(i) = i {
                 (row_id, RowValue::Float(*i as f64))

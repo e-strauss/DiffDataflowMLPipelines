@@ -9,7 +9,6 @@ use std::thread;
 use std::time::Instant;
 use rand::Rng;
 use differential_dataflow::input::{InputSession};
-use differential_dataflow::operators::{Reduce};
 use timely::communication::allocator::Generic;
 use timely::dataflow::operators::probe::Handle;
 use timely::worker::Worker;
@@ -32,167 +31,17 @@ const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     print_demo_separator();
-    // demo_standard_scale(false);
-    // demo_recode(false);
-    // demo_sum(false);
-    // demo_row_struct(false);
-     //demo_multi_column_encoder(false);
-    // demo_multi_column_encoder2(false);
+    demo_multi_column_encoder(false);
+    demo_multi_column_encoder2(false);
     demo_multi_column_encoder3(false);
-     // text_encoder_demo(false)
-    //micro_benchmark_standard_scaler();
-    //micro_benchmark1();
+    text_encoder_demo(false);
+    micro_benchmark_standard_scaler();
+    micro_benchmark1();
 
 }
 
 fn print_demo_separator() {
     println!("---------------------------------------------------------------------------");
-}
-
-fn demo_standard_scale(quiet: bool) {
-    println!("DEMO STANDARD SCALE\n");
-    // Input: Single Value
-    timely::execute_from_args(std::env::args(), move |worker| {
-        // create an input collection of data.
-        let mut input = InputSession::new();
-        // define a new computation.
-        let _probe = worker.dataflow(|scope| {
-            // create a new collection from our input.
-            let mut input_df = input.to_collection(scope);
-            if !quiet {
-                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
-            }
-            let input_df = input_df.map(|v| (1, v));
-
-            let mut meta = standard_scale_fit(&input_df);
-            if !quiet {
-                meta = meta.inspect(|x| println!("FITTING META STATE: {:?}", x));
-            }
-
-            let mut transformed = standard_scale_transform(&input_df, &meta);
-            if !quiet {
-                transformed = transformed.inspect(|x| println!("OUT: {:?}", x));
-            }
-
-            return transformed.probe();
-
-        });
-
-        input.advance_to(0);
-        for person in 0 .. 10 {
-            input.insert(person);
-        }
-        input.advance_to(1);
-        input.flush();
-        make_steps(worker, 0, quiet);
-
-        for person in 0 .. 10 {
-            input.insert(person);
-        }
-        input.advance_to(2);
-        input.flush();
-        make_steps(worker, 1, quiet);
-
-    }).expect("Computation terminated abnormally");
-    print_demo_separator()
-}
-
-fn demo_recode(quiet: bool) {
-    println!("DEMO RECODE\n");
-    // Input: Single Value
-    timely::execute_from_args(std::env::args(), move |worker| {
-        // create an input collection of data.
-        let mut input = InputSession::new();
-        // define a new computation.
-        let _probe = worker.dataflow(|scope| {
-            // create a new collection from our input.
-            let mut input_df = input.to_collection(scope).map(|v| (1, v));
-            if !quiet {
-                input_df = input_df.inspect(|x| println!("IN: {:?}", x))
-            }
-
-            let mut meta = recode_fit(&input_df);
-            if !quiet {
-                meta = meta.inspect(|x| println!("FITTING META STATE: {:?}", x));
-            }
-            // TODO use join for OUT
-
-            return meta.probe();
-        });
-
-        input.advance_to(0);
-        for person in 0 .. 10 {
-            input.insert(person.to_string() + "Person");
-        }
-        input.advance_to(1);
-        input.flush();
-        make_steps(worker, 0, quiet);
-
-        for person in 10 .. 20 {
-            input.insert(person.to_string() + "Person");
-        }
-        input.advance_to(2);
-        input.flush();
-        make_steps(worker, 1, quiet);
-
-        for person in 0 .. 5 {
-            input.insert(person.to_string() + "Person");
-        }
-        input.advance_to(3);
-        input.flush();
-        make_steps(worker, 2, quiet);
-
-    }).expect("Computation terminated abnormally");
-    print_demo_separator()
-}
-
-fn demo_sum(quiet: bool) {
-    println!("SUM DEMO\n");
-    // Input: Single Value
-    timely::execute_from_args(std::env::args(), move |worker| {
-        // create an input collection of data.
-        let mut input = InputSession::new();
-        // define a new computation.
-        let _probe = worker.dataflow(|scope| {
-            // create a new collection from our input.
-            let mut input_df = input.to_collection(scope).map(| v | (1, v));
-            if !quiet {
-                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
-            }
-
-            input_df = input_df
-                .reduce(|_key, input, output| {
-                    let mut sum = 0;
-                    println!("{}", input.len());
-                    for (i, _c) in input {
-                        sum += *i;
-                    }
-                    output.push((sum, 1));
-                });
-            if !quiet {
-                input_df = input_df
-                    .inspect(|x| println!("SUM: {:?}", x))
-            }
-            return input_df.probe();
-        });
-
-        input.advance_to(0);
-        for person in 0 .. 10 {
-            input.insert(person);
-        }
-        input.advance_to(1);
-        input.flush();
-        make_steps(worker, 0, quiet);
-
-        for person in 10 .. 20 {
-            input.insert(person);
-        }
-        input.advance_to(2);
-        input.flush();
-        make_steps(worker, 1, quiet);
-
-    }).expect("Computation terminated abnormally");
-    print_demo_separator()
 }
 
 fn make_steps(worker: &mut Worker<Generic>, t: isize, q: bool) {
@@ -205,29 +54,6 @@ fn make_steps(worker: &mut Worker<Generic>, t: isize, q: bool) {
     if !q {println!("step 2, time {}", t)}
     worker.step();
     thread::sleep(std::time::Duration::from_millis(SLEEPING_DURATION));
-}
-
-fn demo_row_struct(quiet: bool) {
-    println!("DEMO STATIC ENCODER WITH ROW STRUCT\n");
-    // Input: Tuple
-    timely::execute_from_args(std::env::args(), move |worker| {
-        let mut input = InputSession::new();
-        worker.dataflow(|scope| {
-            let mut input_df = input.to_collection(scope);
-            if !quiet {
-                input_df = input_df.inspect(|x| println!("IN: {:?}", x));
-            }
-            /*static_encoder(&input_df)
-                .inspect(|x| println!("OUT: {:?}", x))
-                .probe()*/
-        });
-
-        input.advance_to(0);
-        for person in 0 .. 10 {
-            input.insert((person,Row::with_values(person as i64, 2.0, person.to_string())));
-        }
-    }).expect("Computation terminated abnormally");
-    print_demo_separator()
 }
 
 fn demo_multi_column_encoder(quiet: bool) {
@@ -361,7 +187,6 @@ fn generate_random_string(tokens : Vec<&str>) -> String {
 
 fn text_encoder_demo(quiet: bool) {
     println!("DEMO TEXT ENCODER\n");
-    let n_features = 16;
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
@@ -407,9 +232,8 @@ fn text_encoder_demo(quiet: bool) {
 
 fn micro_benchmark_standard_scaler() {
     println!("DEMO MULTI COLUMN ENCODER\n");
-    // Set a size for our organization from the input.
     let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1000000);
-    let size2 = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
+    let size2 = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
 
     //let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
     let appends = 1;
@@ -462,7 +286,6 @@ fn micro_benchmark_standard_scaler() {
 
 fn micro_benchmark1() {
     println!("DEMO MULTI COLUMN ENCODER\n");
-    // Set a size for our organization from the input.
     let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
     let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(5);
     let timer = Instant::now();

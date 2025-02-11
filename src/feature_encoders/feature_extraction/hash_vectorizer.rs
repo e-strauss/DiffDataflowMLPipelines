@@ -1,8 +1,6 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::ptr::hash;
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::operators::{Join, Reduce, Threshold};
 use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::feature_encoders::feature_extraction::utils::default_tokenizer;

@@ -1,6 +1,6 @@
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
-use differential_dataflow::operators::{Join, Reduce};
+use differential_dataflow::operators::{Join};
 use timely::dataflow::Scope;
 use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::types::row::Row;
