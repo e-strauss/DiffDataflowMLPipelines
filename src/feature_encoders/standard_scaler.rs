@@ -90,10 +90,10 @@ where G::Timestamp: Lattice+Ord {
             Some((n1, n2)) => mean_var_raw.
                 map(move |(column, mean_aggregate)| (column, round_to_decimal(mean_aggregate.get(), n1, n2)))
         };
-        let mean_var = mean_var
-            .inspect(|(record, time, change)| {
-                println!("Mean: {:?}, time: {:?}, change: {:?}", record, time, change)
-            });
+        // let mean_var = mean_var
+        //     .inspect(|(record, time, change)| {
+        //         println!("Mean: {:?}, time: {:?}, change: {:?}", record, time, change)
+        //     });
         self.mean = Some(mean_var);
     }
 

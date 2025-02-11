@@ -42,9 +42,11 @@ pub fn diabetes(rows: Vec<Row>) {
             input.insert((rix, rows[rix].clone()));
             input.advance_to(time);
             input.flush();
-            println!("\n-- time {} -> {} --------------------", time-1, time);
+            //println!("\n-- time {} -> {} --------------------", time-1, time);
             time += 1;
+            let timer_tmp = Instant::now();
             worker.step_while(|| probe.less_than(input.time()));
+            println!("{:?}", timer_tmp.elapsed());
         }
         println!("\nComputation took: {:?}", timer1.elapsed());
         // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
