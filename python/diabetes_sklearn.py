@@ -7,6 +7,7 @@ import sys
 data = pd.read_csv("data/5050_split.csv")
 
 X = data.drop('Diabetes_binary', axis=1)
+print(len(X))
 frac = float(sys.argv[1])
 num_init = int(len(X)*frac)
 
