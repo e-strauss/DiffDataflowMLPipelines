@@ -21,7 +21,10 @@ impl<G: Scope> KBinsDiscretizer<G> {
 impl<G: Scope> ColumnEncoder<G> for KBinsDiscretizer<G>
 where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
-        let meta = get_meta(&data.map(|x| (1, x)));
+        let meta = get_meta(&data.map(|x| (1, x)))
+            .inspect(|(record, time, change)| {
+                println!("KBins Meta: {:?}, time: {:?}, change: {:?}", record, time, change)
+            });
         self.meta = Some(meta);
     }
 

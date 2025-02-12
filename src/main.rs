@@ -45,12 +45,83 @@ fn main() {
     // text_encoder_demo(false);
     // micro_benchmark_standard_scaler();
     // micro_benchmark1();
-    diabetes_pipeline(false);
-
+    //diabetes_pipeline(false);
+    demo_presentation();
 }
 
 fn print_demo_separator() {
     println!("---------------------------------------------------------------------------");
+}
+
+fn demo_presentation() {
+    println!("DEMO MULTI COLUMN ENCODER2\n");
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        let probe = worker.dataflow(|scope| {
+            let input_df = input.to_collection(scope)
+                .inspect(|x| println!("IN: {:?}", x));
+
+            //let config  = vec![(0, OrdinalEncoder::new()), (1, OrdinalEncoder::new())];
+            let config: Vec<(usize, Box<dyn ColumnEncoder< _>>)> = vec![
+                (0, Box::new(StandardScaler::new_with_rounding(-1, -1))),
+                (1, Box::new(MinMaxScaler::new())),
+                (2, Box::new(KBinsDiscretizer::new(4))),
+                (3, Box::new(OneHotEncoder::new())),
+                (4, Box::new(Passthrough::new())),
+            ];
+
+            multi_column_encoder(&input_df, config)
+                .inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        input.advance_to(0);
+        for person in 0 .. 25 {
+            let person_int = person as i64;
+            let row_vals = make_row_vals(person_int);
+            input.insert((person,Row::with_row_values(row_vals)));
+        }
+
+        input.advance_to(1);
+        input.flush();
+        println!("\n-- time 0 -> 1 --------------------");
+        worker.step_while(|| probe.less_than(input.time()));
+        let mut time = 1;
+        let person = 25;
+        let person_int = person as i64;
+        input.insert((person,Row::with_row_values(vec![RowValue::Float(3.0),
+                                                       RowValue::Integer(person_int % 10),
+                                                       RowValue::Integer(person_int % 8),
+                                                       RowValue::Integer(person_int % 3),
+                                                       RowValue::Integer(person_int)])));
+        input.advance_to(time + 1);
+        input.flush();
+        println!("\n-- time {} -> {} --------------------", time, time + 1);
+        worker.step_while(|| probe.less_than(input.time()));
+        time = time + 1;
+
+        let person = 26;
+        let person_int = person as i64;
+        let row_vals = make_row_vals(person_int);
+        input.insert((person,Row::with_row_values(row_vals)));
+        input.advance_to(time + 1);
+        input.flush();
+        println!("\n-- time {} -> {} --------------------", time, time + 1);
+        worker.step_while(|| probe.less_than(input.time()));
+        time = time + 1;
+
+
+    }).expect("Computation terminated abnormally");
+    print_demo_separator()
+}
+
+fn make_row_vals(person_int: i64) -> Vec<RowValue> {
+    vec![RowValue::Integer(person_int % 5),
+                        RowValue::Integer(person_int % 10),
+                        RowValue::Integer(person_int % 8),
+                        RowValue::Integer(person_int % 3),
+                        RowValue::Integer(person_int)]
 }
 
 fn make_steps(worker: &mut Worker<Generic>, t: isize, q: bool) {

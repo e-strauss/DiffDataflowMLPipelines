@@ -34,6 +34,8 @@ where G::Timestamp: Lattice+Ord {
         };
         let value_pos_pairs = value_positions.flat_map(|(_, (btree, len))| {
             btree.into_iter().map(move |(key, value)| (key, (value, len)))
+        }).inspect(|(record, time, change)| {
+            println!("OneHot Meta: {:?}, time: {:?}, change: {:?}", record, time, change)
         });
 
         let len_collection = value_positions.map(|(_, (_ , len))| ((), len));

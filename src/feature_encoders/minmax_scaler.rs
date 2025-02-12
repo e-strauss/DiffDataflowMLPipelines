@@ -159,7 +159,10 @@ fn insert_sorted_list(current: &mut SafeVec<(SafeF64, isize)>, other: &SafeVec<(
 impl<G: Scope> ColumnEncoder<G> for MinMaxScaler<G>
 where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
-        let meta = get_meta(&data.map(|x| (1, x)));
+        let meta = get_meta(&data.map(|x| (1, x)))
+            .inspect(|(record, time, change)| {
+                println!("MinMaxScaler Meta: {:?}, time: {:?}, change: {:?}", record, time, change)
+            });
         self.meta = Some(meta);
     }
 
@@ -180,5 +183,4 @@ where G::Timestamp: Lattice+Ord {
         .map(|(column_id, _value)| column_id)
         .count()
         .map(|(column, agg)| (column, agg.get()))
-        .inspect(|x| println!("{:?}", x))
 }
