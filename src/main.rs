@@ -38,7 +38,7 @@ fn main() {
     // demo_multi_column_encoder2(false);
     // demo_multi_column_encoder3(false);
     // text_encoder_demo(false)
-    // micro_benchmark_standard_scaler(false);
+    micro_benchmark_standard_scaler(false);
 }
 
 fn print_demo_separator() {
@@ -380,14 +380,14 @@ fn micro_benchmark_standard_scaler(quiet: bool) {
     // Set a size for our organization from the input.
     let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
     let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
-    let timer = Instant::now();
+
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
         let probe = worker.dataflow(|scope| {
             let input_df = input.to_collection(scope);
             let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
-            config.push((0, Box::new(StandardScaler::new_with_rounding(-2,0))));
+            config.push((0, Box::new(StandardScaler::new())));
 
             multi_column_encoder(&input_df, config)
                 //.inspect(|x| println!("OUT: {:?}", x))
@@ -402,19 +402,21 @@ fn micro_benchmark_standard_scaler(quiet: bool) {
         }
         input.advance_to(1);
         input.flush();
+        let timer = Instant::now();
         println!("\n-- time 0 -> 1 --------------------");
         worker.step_while(|| probe.less_than(input.time()));
-        println!("\nInit Computation took: {:?}", timer.elapsed());
+        println!("\nInit Computation took: {:?}", timer.elapsed().as_micros());
+        let timer = Instant::now();
         for i in 1 .. (1+ appends){
             input.insert((7,Row::with_row_value(RowValue::Integer((i % 10) as i64))));
             input.advance_to(1 + i);
             input.flush();
-            println!("\n-- time {} -> {} --------------------", i, i + 1);
+            //println!("\n-- time {} -> {} --------------------", i, i + 1);
             worker.step_while(|| probe.less_than(input.time()));
         }
-
+        println!("\nComputation in total took: {:?}", timer.elapsed().as_micros());
         // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
     }).expect("Computation terminated abnormally");
-    println!("\nComputation took: {:?}", timer.elapsed());
+
     print_demo_separator()
 }
