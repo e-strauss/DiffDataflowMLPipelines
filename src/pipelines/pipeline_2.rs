@@ -7,7 +7,7 @@ use crate::feature_encoders::multi_column_encoder::multi_column_encoder;
 use crate::feature_encoders::one_hot_encoder::OneHotEncoder;
 use crate::feature_encoders::passthrough::Passthrough;
 use crate::pipelines::adult_dataset_reader::read_adult_csv;
-use crate::print_demo_separator;
+use crate::pipelines::pipeline_3_diabetes::print_demo_separator;
 use crate::types::row::Row;
 use crate::types::row_value::RowValue;
 

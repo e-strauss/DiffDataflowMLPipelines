@@ -3,7 +3,7 @@ mod feature_encoders;
 mod pipelines;
 
 use std::error::Error;
-use types::row::{Row};
+
 
 extern crate timely;
 extern crate differential_dataflow;
@@ -16,37 +16,36 @@ use serde::Deserialize;
 use timely::communication::allocator::Generic;
 use timely::dataflow::operators::probe::Handle;
 use timely::worker::Worker;
-use feature_encoders::column_encoder::{*};
-use feature_encoders::one_hot_encoder::OneHotEncoder;
-use feature_encoders::multi_column_encoder::multi_column_encoder;
-use crate::feature_encoders::feature_extraction::count_vectorizer::CountVectorizer;
-use crate::feature_encoders::ordinal_encoder::OrdinalEncoder;
-use crate::feature_encoders::standard_scaler::StandardScaler;
-use crate::feature_encoders::minmax_scaler::MinMaxScaler;
-use crate::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
-use crate::feature_encoders::kbins_discretizer::KBinsDiscretizer;
-use crate::feature_encoders::passthrough::Passthrough;
-use crate::feature_encoders::pipeline::Pipeline;
-use crate::feature_encoders::polynomial_features_encoder::PolynomialFeaturesEncoder;
-use crate::pipelines::diabetes_dataset_reader::read_csv2;
-use crate::types::row_value::RowValue;
-use crate::pipelines::pipeline_3_diabetes::diabetes;
+use IncrementalFeatureEncoders::types::row::Row;
+use IncrementalFeatureEncoders::feature_encoders::column_encoder::{*};
+use IncrementalFeatureEncoders::feature_encoders::one_hot_encoder::OneHotEncoder;
+use IncrementalFeatureEncoders::feature_encoders::multi_column_encoder::multi_column_encoder;
+use IncrementalFeatureEncoders::feature_encoders::feature_extraction::count_vectorizer::CountVectorizer;
+use IncrementalFeatureEncoders::feature_encoders::ordinal_encoder::OrdinalEncoder;
+use IncrementalFeatureEncoders::feature_encoders::standard_scaler::StandardScaler;
+use IncrementalFeatureEncoders::feature_encoders::minmax_scaler::MinMaxScaler;
+use IncrementalFeatureEncoders::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
+use IncrementalFeatureEncoders::feature_encoders::kbins_discretizer::KBinsDiscretizer;
+use IncrementalFeatureEncoders::feature_encoders::passthrough::Passthrough;
+use IncrementalFeatureEncoders::feature_encoders::pipeline::Pipeline;
+use IncrementalFeatureEncoders::feature_encoders::polynomial_features_encoder::PolynomialFeaturesEncoder;
+use IncrementalFeatureEncoders::pipelines::diabetes_dataset_reader::read_csv2;
+use IncrementalFeatureEncoders::types::row_value::RowValue;
+use IncrementalFeatureEncoders::pipelines::pipeline_3_diabetes::diabetes;
 
 const SLEEPING_DURATION: u64 = 250;
 
 fn main() {
     print_demo_separator();
-    // demo_multi_column_encoder(false);
-    // demo_multi_column_encoder2(false);
-    // demo_multi_column_encoder3(false);
-    // text_encoder_demo(false);
-    // micro_benchmark_standard_scaler();
-    // micro_benchmark1();
+    demo_multi_column_encoder(false);
+    demo_multi_column_encoder2(false);
+    demo_multi_column_encoder3(false);
+    text_encoder_demo(false);
+    micro_benchmark_standard_scaler();
+    micro_benchmark1();
     micro_benchmark_ordinal();
-    //diabetes_pipeline(false);
-
-    //diabetes_pipeline(false);
-    //demo_presentation();
+    diabetes_pipeline(false);
+    demo_presentation();
 }
 
 fn print_demo_separator() {
@@ -54,7 +53,7 @@ fn print_demo_separator() {
 }
 
 fn demo_presentation() {
-    println!("DEMO MULTI COLUMN ENCODER2\n");
+    println!("DEMO MULTI COLUMN ENCODER PRESENTATION\n");
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
@@ -173,7 +172,7 @@ fn demo_multi_column_encoder(quiet: bool) {
 }
 
 fn demo_multi_column_encoder2(quiet: bool) {
-    println!("DEMO MULTI COLUMN ENCODER2\n");
+    println!("DEMO MULTI COLUMN ENCODER 2\n");
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
@@ -204,7 +203,7 @@ fn demo_multi_column_encoder2(quiet: bool) {
 }
 
 fn demo_multi_column_encoder3(quiet: bool) {
-    println!("DEMO MULTI COLUMN ENCODER2\n");
+    println!("DEMO MULTI COLUMN ENCODER 3\n");
     // Input: Tuple
     timely::execute_from_args(std::env::args(), move |worker| {
         let mut input = InputSession::new();
@@ -312,7 +311,7 @@ fn text_encoder_demo(quiet: bool) {
 
 fn micro_benchmark_standard_scaler() {
     println!("MICRO BENCHMARK STANDARD SCALER\n");
-    let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1000000);
+    let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10000);
     let size2 = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
 
     //let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
@@ -342,6 +341,21 @@ fn micro_benchmark_standard_scaler() {
         println!("\n-- time 0 -> 1 --------------------");
         worker.step_while(|| probe.less_than(input.time()));
         println!("\nInit Computation took: {:?}", timer.elapsed());
+
+        let mut time = 1;
+        let timer_updates = Instant::now();
+        for i in person..(person + appends) {
+            input.insert((i,Row::with_row_value(RowValue::Integer((i % 10) as i64) )));
+            input.advance_to(time + 1);
+            input.flush();
+            time += 1;
+
+            worker.step_while(|| probe.less_than(input.time()));
+
+        }
+        println!("Updates took: {:?}", timer_updates.elapsed().as_micros());
+        println!("Total time: {:?}", timer.elapsed().as_micros());
+
 
         let mut id = size+10;
         for i in 1 .. (1+ appends){
@@ -427,7 +441,7 @@ fn micro_benchmark_ordinal() {
 }
 
 fn micro_benchmark1() {
-    println!("DEMO MULTI COLUMN ENCODER\n");
+    println!("MICRO BENCHMARK 1\n");
     let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
     let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(5);
     let timer = Instant::now();
@@ -459,11 +473,12 @@ fn micro_benchmark1() {
 }
 
 fn diabetes_pipeline(quiet: bool) {
+    println!("DIABETES PIPELINE\n");
     let mut r1 = std::env::args().nth(1).and_then(|s| s.parse::<i32>().ok()).unwrap_or(2);
     let minus1 = std::env::args().nth(2).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
     let mut r2 = std::env::args().nth(3).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
     let minus2 = std::env::args().nth(4).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
-    let init_size = std::env::args().nth(5).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.99);
+    let init_size = std::env::args().nth(5).and_then(|s| s.parse::<f32>().ok()).unwrap_or(0.9999);
     if minus1 == 1 {
         r1 = -r1
     }

@@ -1,7 +1,17 @@
 [package]
-name = "DifferentialDataflowMLPipelines"
+name = "IncrementalFeatureEncoders"  # Renamed from DifferentialDataflowMLPipelines
 version = "0.1.0"
 edition = "2021"
+
+[lib]
+name = "IncrementalFeatureEncoders"
+path = "src/lib.rs"
+
+
+[[bin]]
+name = "DifferentialDataflowMLPipelines"
+path = "src/main.rs"
+
 
 [dependencies]
 #timely = { git = "https://github.com/TimelyDataflow/timely-dataflow" }

@@ -1,7 +1,7 @@
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
 use timely::dataflow::{Scope};
-use crate::ColumnEncoder;
+use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::types::row_value::RowValue;
 
 pub struct Pipeline<'a, G : Scope> {

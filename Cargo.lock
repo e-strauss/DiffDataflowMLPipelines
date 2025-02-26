@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "DifferentialDataflowMLPipelines"
+name = "IncrementalFeatureEncoders"
 version = "0.1.0"
 dependencies = [
  "csv",

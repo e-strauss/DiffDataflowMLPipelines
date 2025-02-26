@@ -1,15 +1,13 @@
 use std::cmp::max;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::ops::{AddAssign, Neg};
+use std::hash::{Hash, Hasher};
 use differential_dataflow::Collection;
 use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Count, Join, Threshold};
 use serde::{Deserialize, Serialize};
 use timely::dataflow::{Scope};
-use crate::ColumnEncoder;
+use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::types::row_value::RowValue;
-use crate::types::safe_f64::SafeF64;
 
 pub struct TfidfTransformer<G: Scope> {
     frequencies : Option<Collection<G, ((), DocumentFrequencyAggregate)>>,

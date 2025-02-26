@@ -1,9 +1,8 @@
-use std::collections::BTreeMap;
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::{Count, Join, Threshold};
 use timely::dataflow::{Scope};
-use crate::ColumnEncoder;
+use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::types::row_value::RowValue;
 use crate::types::row_value::RowValue::Text;
 use crate::feature_encoders::feature_extraction::utils::{default_tokenizer};

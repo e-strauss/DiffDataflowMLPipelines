@@ -128,7 +128,11 @@ impl Hash for RowValue {
                 1.hash(state);
                 a.hash(state);
             },
-            _ => panic!("Can only hash integers and strings!"),
+            RowValue::Float(a) => {
+                2.hash(state);
+                a.to_bits().hash(state);
+            }
+            _ => panic!("Can only hash floats, integers and strings!"),
         }
     }
 

@@ -2,7 +2,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use differential_dataflow::Collection;
 use differential_dataflow::lattice::Lattice;
 use timely::dataflow::{Scope};
-use crate::ColumnEncoder;
+use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::feature_encoders::feature_extraction::utils::default_tokenizer;
 use crate::types::row_value::RowValue;
 use crate::types::row_value::RowValue::Text;

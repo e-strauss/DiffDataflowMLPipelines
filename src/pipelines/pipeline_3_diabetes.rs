@@ -3,7 +3,11 @@ use differential_dataflow::input::InputSession;
 use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::feature_encoders::multi_column_encoder::multi_column_encoder;
 use crate::feature_encoders::standard_scaler::StandardScaler;
-use crate::{print_demo_separator, Row};
+use crate::types::row::Row;
+
+pub(crate) fn print_demo_separator() {
+    println!("---------------------------------------------------------------------------");
+}
 
 pub fn diabetes(rows: Vec<Row>, r1: i32, r2: i32, size: f32) {
     let cols = rows[0].size;
