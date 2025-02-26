@@ -1,0 +1,20 @@
+name: Binary Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test-bins:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run Binary Tests
+        run: cargo test --bins -- --nocapture

@@ -118,3 +118,50 @@ fn round_to_decimal((m,v): (SafeF64, SafeF64), n1: i32, n2: i32) -> (SafeF64, Sa
     let factor2 = 10f64.powi(n2);
     (SafeF64((m.0 / factor1).round() * factor1), SafeF64((v.0 / factor2).round() * factor2))
 }
+
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+    use differential_dataflow::input::InputSession;
+    use super::*;
+    #[test]
+    fn standard_scaler_works() {
+        let result = timely::execute(timely::Config::process(1), move |worker| {
+            let mut input = InputSession::new();
+            let output = Arc::new(Mutex::new(Vec::new()));
+            let probe = worker.dataflow(|scope| {
+                let input_df = input.to_collection(scope);
+                let mut enc = StandardScaler::new();
+                enc.fit(&input_df);
+                let output_clone = Arc::clone(&output); // Clone Arc for use inside closure
+
+                enc.transform(&input_df)
+                    .inspect(move |((_, x),_,_)| {
+                        let mut out = output_clone.lock().unwrap();
+                        out.push(x.get_float());
+                    })
+                    .probe()
+            });
+
+            input.advance_to(0);
+            for person in 0 .. 10 {
+                let person_int = person as i64;
+                input.insert((person,RowValue::Integer(person_int)));
+            }
+
+            input.advance_to(1);
+            input.flush();
+            worker.step_while(|| probe.less_than(input.time()));
+
+            // lock the Mutex to access data
+            let output = output.lock().unwrap();
+
+            // Check the output
+            assert!(!output.is_empty(), "No output was generated");
+            let expected_values: Vec<f64> = (0..10).map(|i| (i as f64 - 4.5)/8.25).collect();
+            assert_eq!(&*output, &expected_values, "Transformed output is incorrect");
+        });
+        assert!(result.is_ok(), "Timely execution failed");
+    }
+}
