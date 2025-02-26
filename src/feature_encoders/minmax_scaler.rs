@@ -11,11 +11,12 @@ use crate::feature_encoders::column_encoder::ColumnEncoder;
 use crate::feature_encoders::standard_scaler::apply_scaling;
 use crate::types::row_value::RowValue;
 use crate::types::safe_f64::SafeF64;
+use crate::types::safe_hash_map::SafeHashMap;
 use crate::types::safe_vec::SafeVec;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MinMaxAggregate {
-    pub counts : BTreeMap<SafeF64, isize>,
+    pub counts : SafeHashMap<SafeF64, isize>,
     max_pq : PriorityQueue<SafeF64, SafeF64>,
     min_pq : PriorityQueue<SafeF64, SafeF64>
 }
@@ -53,7 +54,7 @@ impl IsZero for MinMaxAggregate {
 impl Semigroup for MinMaxAggregate {
     fn plus_equals(&mut self, other: &Self) {
 
-        for (&key, &value) in &other.counts {
+        for (&key, &value) in other.counts.0.iter() {
             // Merge counts
             let mut new_count = *(self.counts.get(&key)).unwrap_or(&0);
             new_count += value;
@@ -73,13 +74,13 @@ impl Semigroup for MinMaxAggregate {
 
 impl Monoid for MinMaxAggregate {
     fn zero() -> Self {
-        Self { counts:BTreeMap::new(), max_pq:PriorityQueue::new(), min_pq:PriorityQueue::new() }
+        Self { counts:SafeHashMap::new(), max_pq:PriorityQueue::new(), min_pq:PriorityQueue::new() }
     }
 }
 
 impl Abelian for MinMaxAggregate {
     fn negate(&mut self) {
-        for (_, count) in self.counts.iter_mut() {
+        for (_, count) in self.counts.0.iter_mut() {
             *count = -*count;
         }
     }
@@ -111,12 +112,12 @@ impl<'de> Deserialize<'de> for MinMaxAggregate {
     where
         D: serde::Deserializer<'de>,
     {
-        let counts: BTreeMap<SafeF64, isize> = BTreeMap::deserialize(deserializer)?;
+        let counts: SafeHashMap<SafeF64, isize> = SafeHashMap::deserialize(deserializer)?;
 
         let mut new = Self::zero();
         new.counts = counts.clone();
 
-        for (key, &count) in &counts {
+        for (key, &count) in counts.0.iter() {
             if count > 0 {
                 new.max_pq.push_increase(key.clone(), key.clone());
                 new.min_pq.push_increase(key.clone(), SafeF64(-key.clone().0));
