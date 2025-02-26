@@ -3,5 +3,5 @@ pub mod row;
 pub(crate) mod safe_f64;
 pub mod safe_vec;
 
-pub mod vector_position_aggregate;
+pub mod integer_assignment_aggregate;
 pub mod safe_hash_map;

@@ -26,7 +26,6 @@ use crate::feature_encoders::minmax_scaler::MinMaxScaler;
 use crate::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
 use crate::feature_encoders::kbins_discretizer::KBinsDiscretizer;
 use crate::feature_encoders::passthrough::Passthrough;
-use crate::feature_encoders::ordinal_encoder_hash::OrdinalEncoderHash;
 use crate::feature_encoders::pipeline::Pipeline;
 use crate::feature_encoders::polynomial_features_encoder::PolynomialFeaturesEncoder;
 use crate::pipelines::diabetes_dataset_reader::read_csv2;
@@ -379,7 +378,7 @@ fn micro_benchmark_ordinal() {
         let probe = worker.dataflow(|scope| {
             let input_df = input.to_collection(scope);
             let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
-            config.push((0, Box::new(OrdinalEncoderHash::new())));
+            config.push((0, Box::new(OrdinalEncoder::new())));
 
             multi_column_encoder(&input_df, config)
                 //.inspect(|x| println!("OUT: {:?}", x))

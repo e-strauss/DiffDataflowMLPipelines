@@ -7,10 +7,11 @@ use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
 use crate::types::row_value::RowValue::Text;
 use crate::feature_encoders::feature_extraction::utils::{default_tokenizer};
-use crate::types::vector_position_aggregate::PositionAssignmentAggregate;
+use crate::types::safe_hash_map::SafeHashMap;
+use crate::types::integer_assignment_aggregate::PositionAssignmentAggregate;
 
 pub struct CountVectorizer <G: Scope> {
-    corpus: Option<Collection<G, ((), (BTreeMap<String, usize>, usize))>>, //(BTreeMap<Token -> Index, max_index)
+    corpus: Option<Collection<G, ((), (SafeHashMap<String, usize>, usize))>>, //(HashMap<Token -> Index, max_index)
     binary: bool
 }
 

@@ -5,10 +5,11 @@ use differential_dataflow::operators::{Count, Join, Threshold};
 use timely::dataflow::{Scope};
 use crate::ColumnEncoder;
 use crate::types::row_value::RowValue;
-use crate::types::vector_position_aggregate::PositionAssignmentAggregate;
+use crate::types::safe_hash_map::SafeHashMap;
+use crate::types::integer_assignment_aggregate::PositionAssignmentAggregate;
 
 pub struct OneHotEncoder <G: Scope> {
-    value_positions: Option<Collection<G, ((), (BTreeMap<RowValue, usize>, usize))>>,
+    value_positions: Option<Collection<G, ((), (SafeHashMap<RowValue, usize>, usize))>>,
 }
 
 impl<G: Scope> OneHotEncoder<G> {
@@ -33,7 +34,7 @@ where G::Timestamp: Lattice+Ord {
             Some(m) => m
         };
         let value_pos_pairs = value_positions.flat_map(|(_, (btree, len))| {
-            btree.into_iter().map(move |(key, value)| (key, (value, len)))
+            btree.0.into_iter().map(move |(key, value)| (key, (value, len)))
         }).inspect(|(record, time, change)| {
             println!("OneHot Meta: {:?}, time: {:?}, change: {:?}", record, time, change)
         });

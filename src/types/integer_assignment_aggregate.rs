@@ -1,12 +1,14 @@
 use std::collections::BTreeMap;
+use std::hash::Hash;
 use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use serde::{Deserialize, Serialize};
+use crate::types::safe_hash_map::SafeHashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PositionAssignmentAggregate<T>
-where T: Ord + Clone {
-    pub val_to_index: BTreeMap<T, (usize)>,
-    val_to_count: BTreeMap<T, (isize)>,
+where T: Ord + Clone + Hash {
+    pub val_to_index: SafeHashMap<T, usize>,
+    val_to_count: SafeHashMap<T, isize>,
 
     free_indices: Vec<usize>,
     next_index: usize,
@@ -17,7 +19,7 @@ where T: Ord + Clone {
 
 
 impl<T> PositionAssignmentAggregate<T>
-where T: Ord + Clone {
+where T: Ord + Clone + Hash {
     pub fn new_with_vec(tokens : &Vec<T>, mult : isize) -> Self {
         let mut agg = Self::zero();
         agg.row_count = mult;
@@ -47,7 +49,7 @@ where T: Ord + Clone {
     fn compress(&mut self) {
         let keys: Vec<T> = self.val_to_index.keys().cloned().collect();
 
-        let mut new_map = BTreeMap::new();
+        let mut new_map = SafeHashMap::new();
         for (new_index, key) in keys.iter().enumerate() {
             new_map.insert(key.clone(), new_index);
         }
@@ -61,8 +63,7 @@ where T: Ord + Clone {
                 let count = c.clone();
                 self.val_to_count.insert(value.clone(), count + count_to_add);
                 if (count > 0 && count + count_to_add <= 0){
-                    let index = *self.val_to_index.get_mut(&value).unwrap();
-                    //self.val_to_index.remove(value); //TODO remove neccessary?
+                    let index = *self.val_to_index.get(&value).unwrap();
                     self.free_indices.push(index);
                 } else if(count <= 0 && count + count_to_add > 0) {
                     let new_index = self.assign_index();
@@ -99,14 +100,14 @@ where T: Ord + Clone {
 }
 
 impl<T> IsZero for PositionAssignmentAggregate<T>
-where T: Ord + Clone {
+where T: Ord + Clone + Hash {
     fn is_zero(&self) -> bool {
         self.row_count == 0
     }
 }
 
 impl<T> Semigroup for PositionAssignmentAggregate<T>
-where T: Ord + Clone {
+where T: Ord + Clone + Hash {
     fn plus_equals(&mut self, other: &Self) {
         for (value, _) in other.val_to_index.iter() {
             let mut other_count = *other.val_to_count.get(value).unwrap();
@@ -119,14 +120,14 @@ where T: Ord + Clone {
 }
 
 impl<T> Monoid for PositionAssignmentAggregate<T>
-where T: Ord + Clone {
+where T: Ord + Clone + Hash {
     fn zero() -> Self {
-        Self { val_to_index: BTreeMap::new(), val_to_count: BTreeMap::new(), free_indices: Vec::new(), next_index: 0, neg: false, row_count: 0, len:1}
+        Self { val_to_index: SafeHashMap::new(), val_to_count: SafeHashMap::new(), free_indices: Vec::new(), next_index: 0, neg: false, row_count: 0, len:1}
     }
 }
 
 impl<T> Abelian for PositionAssignmentAggregate<T>
-where T: Ord + Clone {
+where T: Ord + Clone + Hash {
     fn negate(&mut self) {
         self.neg = !self.neg;
         self.row_count *= -1;
