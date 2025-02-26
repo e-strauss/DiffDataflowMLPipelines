@@ -10,7 +10,6 @@ extern crate differential_dataflow;
 
 use std::thread;
 use std::time::Instant;
-use csv::Reader;
 use rand::Rng;
 use differential_dataflow::input::{InputSession};
 use serde::Deserialize;
@@ -24,11 +23,10 @@ use crate::feature_encoders::feature_extraction::count_vectorizer::CountVectoriz
 use crate::feature_encoders::ordinal_encoder::OrdinalEncoder;
 use crate::feature_encoders::standard_scaler::StandardScaler;
 use crate::feature_encoders::minmax_scaler::MinMaxScaler;
-use crate::feature_encoders::feature_extraction::hash_vectorizer::HashVectorizer;
 use crate::feature_encoders::feature_extraction::tfidf_transformer::TfidfTransformer;
-use crate::feature_encoders::kbins_discretizer;
 use crate::feature_encoders::kbins_discretizer::KBinsDiscretizer;
 use crate::feature_encoders::passthrough::Passthrough;
+use crate::feature_encoders::ordinal_encoder_hash::OrdinalEncoderHash;
 use crate::feature_encoders::pipeline::Pipeline;
 use crate::feature_encoders::polynomial_features_encoder::PolynomialFeaturesEncoder;
 use crate::pipelines::diabetes_dataset_reader::read_csv2;
@@ -45,8 +43,11 @@ fn main() {
     // text_encoder_demo(false);
     // micro_benchmark_standard_scaler();
     // micro_benchmark1();
+    micro_benchmark_ordinal();
     //diabetes_pipeline(false);
-    demo_presentation();
+
+    //diabetes_pipeline(false);
+    //demo_presentation();
 }
 
 fn print_demo_separator() {
@@ -311,7 +312,7 @@ fn text_encoder_demo(quiet: bool) {
 }
 
 fn micro_benchmark_standard_scaler() {
-    println!("DEMO MULTI COLUMN ENCODER\n");
+    println!("MICRO BENCHMARK STANDARD SCALER\n");
     let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1000000);
     let size2 = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
 
@@ -358,6 +359,67 @@ fn micro_benchmark_standard_scaler() {
             println!("\nUpdate Computation took: {:?}", timer.elapsed());
         }
 
+
+        // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
+    }).expect("Computation terminated abnormally");
+    //println!("\nComputation took: {:?}", timer.elapsed());
+    print_demo_separator()
+}
+
+fn micro_benchmark_ordinal() {
+    println!("MICRO BENCHMARK ORDINAL ENCODER\n");
+    let size = std::env::args().nth(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(100);
+    let appends = std::env::args().nth(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(25);
+
+    let unique = std::env::args().nth(3).and_then(|s| s.parse::<usize>().ok()).unwrap_or(25);
+
+    // Input: Tuple
+    timely::execute_from_args(std::env::args(), move |worker| {
+        let mut input = InputSession::new();
+        let probe = worker.dataflow(|scope| {
+            let input_df = input.to_collection(scope);
+            let mut config: Vec<(usize, Box<dyn ColumnEncoder< _>>)>  = Vec::new();
+            config.push((0, Box::new(OrdinalEncoderHash::new())));
+
+            multi_column_encoder(&input_df, config)
+                //.inspect(|x| println!("OUT: {:?}", x))
+                .probe()
+        });
+
+        input.advance_to(0);
+        let mut person = worker.index();
+        while person < size {
+            input.insert((person,Row::with_row_value(RowValue::Text((person % unique).to_string()))));
+            person += worker.peers();
+        }
+        input.advance_to(1);
+        input.flush();
+        let timer = Instant::now();
+        println!("\n-- time 0 -> 1 --------------------");
+        worker.step_while(|| probe.less_than(input.time()));
+        println!("\nInit Computation took: {:?}", timer.elapsed().as_micros());
+
+        let mut time = 1;
+        let mut new_unique = unique ;
+        let timer_updates = Instant::now();
+        for i in person..(person + appends) {
+            let string_val = match (i % unique) {
+                0 => {new_unique += 1;
+                    new_unique.to_string()},
+                rest => rest.to_string(),
+            };
+            let rv = RowValue::Text(string_val);
+
+            input.insert((i, Row::with_row_value(rv)));
+            input.advance_to(time + 1);
+            input.flush();
+            time += 1;
+
+            worker.step_while(|| probe.less_than(input.time()));
+
+        }
+        println!("Updates took: {:?}", timer_updates.elapsed().as_micros());
+        println!("Total time: {:?}", timer.elapsed().as_micros());
 
         // input.insert((7,Row::with_values(7, 2.0, "7".to_string())));
     }).expect("Computation terminated abnormally");

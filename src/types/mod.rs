@@ -4,3 +4,4 @@ pub(crate) mod safe_f64;
 pub mod safe_vec;
 
 pub mod vector_position_aggregate;
+pub mod safe_hash_map;

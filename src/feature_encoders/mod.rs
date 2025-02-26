@@ -10,3 +10,4 @@ pub mod minmax_scaler;
 pub mod pipeline;
 pub mod passthrough;
 pub mod function_encoder;
+pub mod ordinal_encoder_hash;
