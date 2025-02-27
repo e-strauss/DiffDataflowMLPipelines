@@ -50,18 +50,27 @@ impl RowValue {
         }
     }
 
-    pub fn vector_append(&self, other: &RowValue) -> RowValue{
+    pub fn vector_append(self, other: &RowValue) -> RowValue{
         match self {
-            RowValue::Vec(v) => {
-                let mut v2 = v.clone();
+            RowValue::Vec(mut v) => {
                 match other {
-                    RowValue::Vec(v1) => {v2.extend(v1); RowValue::Vec(v2)}
-                    RowValue::Integer(i) => {v2.push(*i as f64); RowValue::Vec(v2)}
-                    RowValue::Float(f) => {v2.push(*f); RowValue::Vec(v2)}
+                    RowValue::Vec(v1) => {v.extend(v1); RowValue::Vec(v)}
+                    RowValue::Integer(i) => {v.push(*i as f64); RowValue::Vec(v)}
+                    RowValue::Float(f) => {v.push(*f); RowValue::Vec(v)}
                     _ => panic!("cannot concat this row value to vector"),
                 }
+            },
+            RowValue::Float(f1) => {
+                match other {
+                    RowValue::Float(f2) => RowValue::Vec(vec![f1, *f2]),
+                    RowValue::Vec(v2) => {
+                        let mut v1 = vec![f1];
+                        v1.extend(v2);
+                        RowValue::Vec(v1)}
+                    a => panic!("can only add two floats to a vector, left side is: [{:?}]", a),
+                }
             }
-            _ => panic!("vector_concat called on non-vector row value"),
+            a => panic!("vector_concat called on non-vector row value [{:?}]", a),
         }
     }
 }

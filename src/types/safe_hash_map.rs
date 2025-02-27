@@ -4,7 +4,7 @@ use std::hash::Hash;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SafeHashMap<T: Ord + Clone + Hash + PartialEq, V: Clone + PartialEq >(pub(crate) HashMap<T, V>);
+pub struct SafeHashMap<T: Ord + Clone + Hash + PartialEq, V: Clone + PartialEq >(pub(crate) HashMap<T, V>);
 
 impl<T: Ord + Clone + Hash + PartialEq, V: Clone + PartialEq> SafeHashMap<T, V>  {
     pub(crate) fn new() -> Self {

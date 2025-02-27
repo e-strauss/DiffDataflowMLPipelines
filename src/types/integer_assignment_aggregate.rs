@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::hash::Hash;
 use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use serde::{Deserialize, Serialize};
@@ -7,12 +6,12 @@ use crate::types::safe_hash_map::SafeHashMap;
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PositionAssignmentAggregate<T>
 where T: Ord + Clone + Hash {
-    pub val_to_index: SafeHashMap<T, usize>,
+    val_to_index: SafeHashMap<T, usize>,
     val_to_count: SafeHashMap<T, isize>,
 
     free_indices: Vec<usize>,
     next_index: usize,
-    pub len : usize,
+    len : usize,
     neg : bool,
     row_count : isize
 }
@@ -20,6 +19,10 @@ where T: Ord + Clone + Hash {
 
 impl<T> PositionAssignmentAggregate<T>
 where T: Ord + Clone + Hash {
+    pub fn get_map_and_len(self) -> (SafeHashMap<T, usize>, usize) {
+        (self.val_to_index, self.len)
+    }
+
     pub fn new_with_vec(tokens : &Vec<T>, mult : isize) -> Self {
         let mut agg = Self::zero();
         agg.row_count = mult;
@@ -62,10 +65,10 @@ where T: Ord + Clone + Hash {
             Some(c) => {
                 let count = c.clone();
                 self.val_to_count.insert(value.clone(), count + count_to_add);
-                if (count > 0 && count + count_to_add <= 0){
+                if count > 0 && count + count_to_add <= 0 {
                     let index = *self.val_to_index.get(&value).unwrap();
                     self.free_indices.push(index);
-                } else if(count <= 0 && count + count_to_add > 0) {
+                } else if count <= 0 && count + count_to_add > 0 {
                     let new_index = self.assign_index();
                     self.val_to_index.insert(value.clone(), new_index);
                 }
@@ -78,13 +81,13 @@ where T: Ord + Clone + Hash {
                 }
             }
         }
-        if(self.value_count() > self.len){
-            while(self.value_count() > self.len){
+        if self.value_count() > self.len {
+            while self.value_count() > self.len {
                 self.len = (self.len as f64 * 1.5).round() as usize;
             }
-        } else if (self.value_count() < (self.len as f64 * 0.66).floor() as usize){
+        } else if self.value_count() < (self.len as f64 * 0.66).floor() as usize {
             self.compress();
-            while(self.value_count() < (self.len as f64 * 0.66).floor()  as usize){
+            while self.value_count() < (self.len as f64 * 0.66).floor()  as usize {
                 self.len = (self.len as f64 * 0.66).ceil() as usize;
             }
         }

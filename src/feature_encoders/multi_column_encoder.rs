@@ -17,7 +17,11 @@ where
     let mut col_iterator = config.into_iter();
     // Handle the first element init out with Row with one value
     // slice out current column
-    let mut out = data.map(move | (ix, row)| (ix, RowValue::Vec(vec![])));
+    let (col_id, mut enc) = col_iterator.next().unwrap();
+    let col = data.map(move | (ix, row)|
+        (ix, row.values[col_id].clone()));
+    enc.fit(&col);
+    let mut out = enc.transform(&col);
     // Process the rest using the same iterator
     for (col_id, mut enc) in col_iterator {
         // slice out current column

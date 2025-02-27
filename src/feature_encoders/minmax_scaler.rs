@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
 use differential_dataflow::Collection;
 use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use differential_dataflow::lattice::Lattice;
@@ -16,7 +15,7 @@ use crate::types::safe_vec::SafeVec;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MinMaxAggregate {
-    pub counts : SafeHashMap<SafeF64, isize>,
+    counts : SafeHashMap<SafeF64, isize>,
     max_pq : PriorityQueue<SafeF64, SafeF64>,
     min_pq : PriorityQueue<SafeF64, SafeF64>
 }
@@ -134,26 +133,6 @@ pub struct MinMaxScaler<G: Scope> {
 impl<G: Scope> MinMaxScaler<G> {
     pub fn new() -> Self{
         Self{meta:None}
-    }
-}
-
-fn insert_sorted_list(current: &mut SafeVec<(SafeF64, isize)>, other: &SafeVec<(SafeF64, isize)>) {
-    for tuple in other.0.iter() {
-        let pos =current.0.binary_search_by(|&(v, _)| v.partial_cmp(&tuple.0).unwrap())
-            .unwrap_or_else(|e| e);
-
-        if pos < current.0.len() && current.0[pos].0 == tuple.0 {
-            // Merge counts
-            current.0[pos].1 += tuple.1;
-
-            // Remove if count <= 0
-            if current.0[pos].1 <= 0 {
-                current.0.remove(pos);
-            }
-        } else {
-            // Insert maintaining order
-            current.0.insert(pos, *tuple);
-        }
     }
 }
 

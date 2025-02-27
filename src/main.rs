@@ -2,8 +2,6 @@ mod types;
 mod feature_encoders;
 mod pipelines;
 
-use std::error::Error;
-
 
 extern crate timely;
 extern crate differential_dataflow;
@@ -12,7 +10,6 @@ use std::thread;
 use std::time::Instant;
 use rand::Rng;
 use differential_dataflow::input::{InputSession};
-use serde::Deserialize;
 use timely::communication::allocator::Generic;
 use timely::dataflow::operators::probe::Handle;
 use timely::worker::Worker;
@@ -44,7 +41,7 @@ fn main() {
     micro_benchmark_standard_scaler();
     micro_benchmark1();
     micro_benchmark_ordinal();
-    diabetes_pipeline(false);
+    diabetes_pipeline();
     demo_presentation();
 }
 
@@ -108,9 +105,6 @@ fn demo_presentation() {
         input.flush();
         println!("\n-- time {} -> {} --------------------", time, time + 1);
         worker.step_while(|| probe.less_than(input.time()));
-        time = time + 1;
-
-
     }).expect("Computation terminated abnormally");
     print_demo_separator()
 }
@@ -416,7 +410,7 @@ fn micro_benchmark_ordinal() {
         let mut new_unique = unique ;
         let timer_updates = Instant::now();
         for i in person..(person + appends) {
-            let string_val = match (i % unique) {
+            let string_val = match i % unique {
                 0 => {new_unique += 1;
                     new_unique.to_string()},
                 rest => rest.to_string(),
@@ -472,7 +466,7 @@ fn micro_benchmark1() {
     print_demo_separator()
 }
 
-fn diabetes_pipeline(quiet: bool) {
+fn diabetes_pipeline() {
     println!("DIABETES PIPELINE\n");
     let mut r1 = std::env::args().nth(1).and_then(|s| s.parse::<i32>().ok()).unwrap_or(2);
     let minus1 = std::env::args().nth(2).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);

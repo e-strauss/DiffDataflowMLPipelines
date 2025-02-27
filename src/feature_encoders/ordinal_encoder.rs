@@ -7,7 +7,7 @@ use crate::types::row_value::RowValue;
 use crate::types::integer_assignment_aggregate::PositionAssignmentAggregate;
 
 pub struct OrdinalEncoder <G: Scope> {
-    value_map: Option<Collection<G, ((RowValue, RowValue))>>,
+    value_map: Option<Collection<G, (RowValue, RowValue)>>,
 }
 
 impl<G: Scope> OrdinalEncoder<G> {
@@ -24,7 +24,8 @@ where G::Timestamp: Lattice+Ord {
             .threshold(|value, multiplicity| PositionAssignmentAggregate::new_with_val(value, *multiplicity))
             .map(|_vector| ())
             .count()
-            .flat_map(|((), agg)| agg.val_to_index.0.iter().map(|(k,v)| (k.clone(), v.clone())).collect::<Vec<_>>())
+            .flat_map(|((), agg)| agg.get_map_and_len().0.iter()
+                .map(|(k,v)| (k.clone(), v.clone())).collect::<Vec<_>>())
             .map(|(k, v)| (k, RowValue::Float(v as f64)))
             //.inspect(|x| {println!("{:?}", x)})
         );
@@ -39,7 +40,7 @@ where G::Timestamp: Lattice+Ord {
         let joined = data.map(|(rix, v) | (v, rix) )
             .join(value_map);
 
-        let matched = joined.map(|(k, (rix, v))| (rix, v));
+        let matched = joined.map(|(_, (rix, v))| (rix, v));
 
         let unmatched = data.map(|(row_id, v)| (v, row_id))
             .antijoin(&value_map.map(|(value, _)| value))

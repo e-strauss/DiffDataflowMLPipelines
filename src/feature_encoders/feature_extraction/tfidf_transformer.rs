@@ -1,5 +1,4 @@
 use std::cmp::max;
-use std::hash::{Hash, Hasher};
 use differential_dataflow::Collection;
 use differential_dataflow::difference::{Abelian, IsZero, Monoid, Semigroup};
 use differential_dataflow::lattice::Lattice;
@@ -46,7 +45,7 @@ where G::Timestamp: Lattice+Ord {
             .threshold(move |vector, multiplicity| {
                 DocumentFrequencyAggregate::new(vector.clone(), *multiplicity, round_to)
             })
-            .map(|vector| ())
+            .map(|_vector| ())
             .count();
         self.frequencies = Some(frequencies);
     }

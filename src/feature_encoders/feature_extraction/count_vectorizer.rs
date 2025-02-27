@@ -31,9 +31,10 @@ where G::Timestamp: Lattice+Ord {
                 }
             });
         self.corpus = Some(tokenized
-            .threshold(|tokens, multiplicity| {
-                PositionAssignmentAggregate::new_with_vec(tokens, *multiplicity)
-            }).map(|_vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.len))));
+            .threshold(|tokens, multiplicity|
+                PositionAssignmentAggregate::new_with_vec(tokens, *multiplicity))
+            .map(|_vector| ()).count()
+            .map(|((), agg)| ((), agg.get_map_and_len())));
     }
 
     fn transform(&self, data: &Collection<G, (usize, RowValue)>) -> Collection<G, (usize, RowValue)> {

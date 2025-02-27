@@ -22,9 +22,9 @@ where G::Timestamp: Lattice+Ord {
     fn fit(&mut self, data: &Collection<G, (usize, RowValue)>) {
         let distinct = data.map(|(_, row_value)| row_value).distinct();
         self.value_positions = Some(distinct
-            .threshold(|value, multiplicity| {
-                PositionAssignmentAggregate::new_with_val(value, *multiplicity)
-            }).map(|_vector| ()).count().map(|agg| ((), (agg.1.val_to_index, agg.1.len))));
+            .threshold(|value, multiplicity|
+                PositionAssignmentAggregate::new_with_val(value, *multiplicity))
+            .map(|_vector| ()).count().map(|((), agg)| ((), agg.get_map_and_len())));
     }
 
     fn transform(&self, data: &Collection<G,(usize, RowValue)>) -> Collection<G, (usize, RowValue)> {
